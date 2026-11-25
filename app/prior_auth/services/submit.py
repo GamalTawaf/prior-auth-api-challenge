@@ -95,6 +95,15 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
             )
         )
 
+    if not body.procedures:
+        errors.append(
+            FieldError(
+                error_code="procedures_required",
+                field="procedures",
+                message="At least one procedure is required",
+            )
+        )
+
     for i, proc in enumerate(body.procedures):
         prefix = f"procedures[{i}]"
         if not CPT_RE.match(proc.code.strip()):
@@ -103,6 +112,14 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
                     error_code="invalid_procedure_code",
                     field=f"{prefix}.code",
                     message="CPT/HCPCS code must be 5 alphanumeric characters",
+                )
+            )
+        if proc.units < 1:
+            errors.append(
+                FieldError(
+                    error_code="units_too_low",
+                    field=f"{prefix}.units",
+                    message="Units must be at least 1",
                 )
             )
         if proc.units > 30:

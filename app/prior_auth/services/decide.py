@@ -27,6 +27,7 @@ def decide_request(
         select(PriorAuthRequest)
         .where(PriorAuthRequest.id == request_id)
         .options(selectinload(PriorAuthRequest.procedures))
+        .with_for_update()
     )
     if request is None:
         raise NotFoundError("Prior auth request not found")
@@ -45,9 +46,9 @@ def decide_request(
         raise ForbiddenError("Conflict of interest with this member")
 
     by_id = {p.id: p for p in request.procedures}
-    outcome_ids = {o.procedure_id for o in body.outcomes}
+    outcome_ids = [o.procedure_id for o in body.outcomes]
     errors: list[FieldError] = []
-    if outcome_ids != set(by_id):
+    if len(outcome_ids) != len(by_id) or set(outcome_ids) != set(by_id):
         errors.append(
             FieldError(
                 error_code="procedures_incomplete",

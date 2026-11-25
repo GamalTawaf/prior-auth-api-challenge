@@ -8,8 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProcedureIn(BaseModel):
-    code: str = Field(min_length=5, max_length=10)
-    units: int = Field(ge=1)
+    # Bounds enforced in submit service so failures become IntakeRejection rows
+    code: str
+    units: int
 
 
 class SubmitPriorAuthIn(BaseModel):
@@ -17,7 +18,7 @@ class SubmitPriorAuthIn(BaseModel):
     diagnosis_icd10: str
     date_of_service: date
     clinical_note: str | None = None
-    procedures: list[ProcedureIn] = Field(min_length=1)
+    procedures: list[ProcedureIn] = Field(default_factory=list)
 
 
 class ProcedureOut(BaseModel):

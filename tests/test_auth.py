@@ -25,10 +25,15 @@ def test_wrong_role_403(client: TestClient):
 
 
 def test_require_role_helper_rejects(client: TestClient):
-    # exercise require_role via reviewer-only queue with office token
     token = client.seed["tokens"]["office"]
     response = client.get("/v1/review-queue", headers=auth(token))
     assert response.status_code == 403
     assert require_role(UserRole.reviewer)
     assert app.title
     _ = mint_token(client.seed["office"])
+
+
+def test_expired_token_401(client: TestClient):
+    token = mint_token(client.seed["office"], hours=-1)
+    response = client.get("/v1/prior-auths", headers=auth(token))
+    assert response.status_code == 401

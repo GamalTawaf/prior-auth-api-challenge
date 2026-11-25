@@ -17,13 +17,16 @@ from app.identity.schemas import UserContext
 bearer = HTTPBearer(auto_error=False)
 
 
-def mint_token(user: User) -> str:
+def mint_token(user: User, *, hours: int = 24) -> str:
+    from datetime import UTC, datetime, timedelta
+
     payload = {
         "sub": str(user.id),
         "role": user.role.value,
         "practice_id": str(user.practice_id) if user.practice_id else None,
         "member_id": str(user.member_id) if user.member_id else None,
         "email": user.email,
+        "exp": datetime.now(UTC) + timedelta(hours=hours),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
@@ -46,7 +49,6 @@ def get_current_user(
         ) from exc
     try:
         user_id = uuid.UUID(data["sub"])
-        role = UserRole(data["role"])
     except (KeyError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
@@ -56,7 +58,7 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
     return UserContext(
         user_id=user.id,
-        role=role,
+        role=user.role,
         practice_id=user.practice_id,
         member_id=user.member_id,
         email=user.email,

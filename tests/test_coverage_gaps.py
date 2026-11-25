@@ -41,12 +41,19 @@ def test_invalid_token_and_unknown_user(client: TestClient, db: Session):
 
     from app.config import settings
 
-    bad_role = jwt.encode(
-        {"sub": str(uuid.uuid4()), "role": "nope"},
+    bad_sub = jwt.encode(
+        {"sub": "not-a-uuid"},
         settings.jwt_secret,
         algorithm=settings.jwt_algorithm,
     )
-    assert client.get("/v1/prior-auths", headers=auth(bad_role)).status_code == 401
+    assert client.get("/v1/prior-auths", headers=auth(bad_sub)).status_code == 401
+
+    missing_sub = jwt.encode(
+        {"role": "provider_office"},
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+    )
+    assert client.get("/v1/prior-auths", headers=auth(missing_sub)).status_code == 401
 
     ghost = jwt.encode(
         {"sub": str(uuid.uuid4()), "role": "provider_office"},
@@ -54,6 +61,7 @@ def test_invalid_token_and_unknown_user(client: TestClient, db: Session):
         algorithm=settings.jwt_algorithm,
     )
     assert client.get("/v1/prior-auths", headers=auth(ghost)).status_code == 401
+
 
 
 def test_submit_validation_edges(client: TestClient):
@@ -68,6 +76,13 @@ def test_submit_validation_edges(client: TestClient):
     r = client.post("/v1/prior-auths", headers=auth(client.seed["tokens"]["office"]), json=body)
     assert r.status_code == 422
     assert any(e["error_code"] == "invalid_procedure_code" for e in r.json()["errors"])
+
+    body = valid_submit_body(client.seed, procedures=[])
+    r = client.post("/v1/prior-auths", headers=auth(client.seed["tokens"]["office"]), json=body)
+    assert r.status_code == 422
+    assert any(e["error_code"] == "procedures_required" for e in r.json()["errors"])
+    assert r.json().get("correlation_id")
+
 
 
 def test_submit_office_without_practice(db: Session, client: TestClient):

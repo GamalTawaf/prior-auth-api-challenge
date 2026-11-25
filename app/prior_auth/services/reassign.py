@@ -3,11 +3,13 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit.writer import write_audit
 from app.identity.models import User, UserRole
 from app.identity.schemas import UserContext
+from app.master_data.models import ReviewerMemberConflict
 from app.prior_auth.models import PriorAuthRequest, RequestStatus
 from app.shared.errors import ConflictError, FieldError, NotFoundError, ValidationFailure
 
@@ -15,7 +17,9 @@ from app.shared.errors import ConflictError, FieldError, NotFoundError, Validati
 def reassign_request(
     db: Session, admin: UserContext, request_id: uuid.UUID, reviewer_id: uuid.UUID
 ) -> PriorAuthRequest:
-    request = db.get(PriorAuthRequest, request_id)
+    request = db.scalar(
+        select(PriorAuthRequest).where(PriorAuthRequest.id == request_id).with_for_update()
+    )
     if request is None:
         raise NotFoundError("Prior auth request not found")
     if request.status == RequestStatus.decided:
@@ -32,6 +36,23 @@ def reassign_request(
                     error_code="invalid_reviewer",
                     field="reviewer_id",
                     message="reviewer_id must reference a reviewer user",
+                )
+            ],
+        )
+    coi = db.scalar(
+        select(ReviewerMemberConflict).where(
+            ReviewerMemberConflict.reviewer_user_id == reviewer_id,
+            ReviewerMemberConflict.member_id == request.member_id,
+        )
+    )
+    if coi is not None:
+        raise ValidationFailure(
+            correlation_id=str(uuid.uuid4()),
+            errors=[
+                FieldError(
+                    error_code="reviewer_coi",
+                    field="reviewer_id",
+                    message="Reviewer has a conflict of interest with this member",
                 )
             ],
         )
