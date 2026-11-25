@@ -6,6 +6,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SETTINGS="$ROOT/.github/repo-settings.json"
 REPO="${GITHUB_REPOSITORY:-}"
+TMPDIR_APPLY="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR_APPLY"' EXIT
 
 if [[ ! -f "$SETTINGS" ]]; then
   echo "missing $SETTINGS" >&2
@@ -18,25 +20,17 @@ fi
 
 echo "=== apply repo settings → $REPO ==="
 
-gh api -X PATCH "repos/$REPO" --input <(
-  python3 - "$SETTINGS" <<'PY'
-import json, sys
-print(json.dumps(json.load(open(sys.argv[1]))["repository"]))
-PY
-)
+python3 - "$SETTINGS" "$TMPDIR_APPLY" <<'PY'
+import json
+import sys
+from pathlib import Path
 
-BP_BRANCH="$(
-  python3 - "$SETTINGS" <<'PY'
-import json, sys
-print(json.load(open(sys.argv[1]))["branch_protection"]["branch"])
-PY
-)"
-
-gh api -X PUT "repos/$REPO/branches/$BP_BRANCH/protection" --input <(
-  python3 - "$SETTINGS" <<'PY'
-import json, sys
-bp = json.load(open(sys.argv[1]))["branch_protection"]
-print(json.dumps({
+settings = json.loads(Path(sys.argv[1]).read_text())
+out = Path(sys.argv[2])
+(out / "repository.json").write_text(json.dumps(settings["repository"]))
+bp = settings["branch_protection"]
+(out / "branch.txt").write_text(bp["branch"])
+payload = {
     "required_status_checks": bp["required_status_checks"],
     "enforce_admins": bp["enforce_admins"],
     "required_pull_request_reviews": bp["required_pull_request_reviews"],
@@ -45,9 +39,15 @@ print(json.dumps({
     "allow_deletions": bp["allow_deletions"],
     "required_linear_history": bp["required_linear_history"],
     "required_conversation_resolution": bp["required_conversation_resolution"],
-}))
+}
+(out / "protection.json").write_text(json.dumps(payload))
 PY
-)
+
+gh api -X PATCH "repos/$REPO" --input "$TMPDIR_APPLY/repository.json"
+
+BP_BRANCH="$(cat "$TMPDIR_APPLY/branch.txt")"
+gh api -X PUT "repos/$REPO/branches/$BP_BRANCH/protection" \
+  --input "$TMPDIR_APPLY/protection.json"
 
 echo "=== verify ==="
 gh api "repos/$REPO" --jq '{allow_squash_merge,allow_merge_commit,allow_rebase_merge,delete_branch_on_merge}'
