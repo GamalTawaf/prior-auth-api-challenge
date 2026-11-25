@@ -13,135 +13,32 @@ permissions:
   contents: read
   pull-requests: read
 
-env:
-  DATABASE_URL: postgresql+psycopg://prior:prior@localhost:5432/prior_auth
-  JWT_SECRET: ci-secret-32-bytes-minimum-key!!
-
+# Thin orchestrator — job bodies live in workflow_call files beside this one.
+# Nested check names are "lint / lint" etc. (see .github/repo-settings.json).
 jobs:
-  # Always runs so required checks (lint/test/mutate/image) can no-op on meta-only PRs
-  # without leaving those contexts "missing" for branch protection.
   changes:
-    runs-on: ubuntu-latest
-    outputs:
-      code: ${{ steps.filter.outputs.code }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          filters: |
-            code:
-              - 'app/**'
-              - 'tests/**'
-              - 'alembic/**'
-              - 'scripts/**'
-              - 'Dockerfile'
-              - 'docker-compose*.yml'
-              - 'pyproject.toml'
-              - 'uv.lock'
-              - 'setup.cfg'
-              - 'alembic.ini'
-              - '.python-version'
-              - '.github/workflows/**'
-              - '.github/actions/**'
+    uses: ./.github/workflows/changes.yml
 
   lint:
     needs: changes
-    runs-on: ubuntu-latest
-    steps:
-      - name: skip (meta-only change)
-        if: needs.changes.outputs.code != 'true'
-        run: echo "Skipping lint — no code paths changed"
-      - uses: actions/checkout@v7
-        if: needs.changes.outputs.code == 'true'
-      - uses: ./.github/actions/setup-project
-        if: needs.changes.outputs.code == 'true'
-      - name: ruff format
-        if: needs.changes.outputs.code == 'true'
-        run: ./scripts/ci_run.sh "ruff format" -- uv run ruff format --check app tests scripts
-      - name: ruff lint
-        if: needs.changes.outputs.code == 'true'
-        run: ./scripts/ci_run.sh "ruff lint" -- uv run ruff check app tests scripts
-      - name: call style
-        if: needs.changes.outputs.code == 'true'
-        run: ./scripts/ci_run.sh "call style" -- uv run python scripts/check_call_style.py
-      - name: fastapi compile + OpenAPI
-        if: needs.changes.outputs.code == 'true'
-        run: ./scripts/ci_run.sh "fastapi compile" -- uv run python scripts/check_fastapi_compile.py
+    uses: ./.github/workflows/lint.yml
+    with:
+      code: ${{ needs.changes.outputs.code == 'true' }}
 
   test:
     needs: changes
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:19
-        env:
-          POSTGRES_USER: prior
-          POSTGRES_PASSWORD: prior
-          POSTGRES_DB: prior_auth
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U prior -d prior_auth"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 15
-    steps:
-      - name: skip (meta-only change)
-        if: needs.changes.outputs.code != 'true'
-        run: echo "Skipping test — no code paths changed"
-      - uses: actions/checkout@v7
-        if: needs.changes.outputs.code == 'true'
-      - uses: ./.github/actions/setup-project
-        if: needs.changes.outputs.code == 'true'
-      - name: alembic migrate
-        if: needs.changes.outputs.code == 'true'
-        run: ./scripts/ci_run.sh "alembic upgrade head" -- uv run alembic upgrade head
-      - name: pytest + coverage
-        if: needs.changes.outputs.code == 'true'
-        run: ./scripts/ci_run.sh "pytest + coverage" --tail 40 -- uv run pytest -q --cov=app --cov-report=term-missing
+    uses: ./.github/workflows/test.yml
+    with:
+      code: ${{ needs.changes.outputs.code == 'true' }}
 
   mutate:
     needs: changes
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:19
-        env:
-          POSTGRES_USER: prior
-          POSTGRES_PASSWORD: prior
-          POSTGRES_DB: prior_auth
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U prior -d prior_auth"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 15
-    steps:
-      - name: skip (meta-only change)
-        if: needs.changes.outputs.code != 'true'
-        run: echo "Skipping mutate — no code paths changed"
-      - uses: actions/checkout@v7
-        if: needs.changes.outputs.code == 'true'
-      - uses: ./.github/actions/setup-project
-        if: needs.changes.outputs.code == 'true'
-      - name: alembic migrate
-        if: needs.changes.outputs.code == 'true'
-        run: ./scripts/ci_run.sh "alembic upgrade head" -- uv run alembic upgrade head
-      - name: mutmut prior_auth services
-        if: needs.changes.outputs.code == 'true'
-        env:
-          MUTMUT_MAX_SURVIVORS: "0"
-        run: ./scripts/ci_run.sh "mutmut" --tail 40 -- ./scripts/run_mutmut.sh
+    uses: ./.github/workflows/mutate.yml
+    with:
+      code: ${{ needs.changes.outputs.code == 'true' }}
 
   image:
     needs: [changes, lint, test, mutate]
-    runs-on: ubuntu-latest
-    steps:
-      - name: skip (meta-only change)
-        if: needs.changes.outputs.code != 'true'
-        run: echo "Skipping image — no code paths changed"
-      - uses: actions/checkout@v7
-        if: needs.changes.outputs.code == 'true'
-      - name: docker build (no push)
-        if: needs.changes.outputs.code == 'true'
-        run: ./scripts/ci_run.sh "docker build" --tail 30 -- docker build -t prior-auth-api:ci .
+    uses: ./.github/workflows/image.yml
+    with:
+      code: ${{ needs.changes.outputs.code == 'true' }}

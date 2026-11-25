@@ -19,7 +19,7 @@
     "required_pull_request_reviews": null,
     "required_status_checks": {
       "strict": true,
-      "contexts": ["lint", "test", "mutate", "image"]
+      "contexts": ["lint / lint", "test / test", "mutate / mutate", "image / image"]
     },
     "restrictions": null
   }

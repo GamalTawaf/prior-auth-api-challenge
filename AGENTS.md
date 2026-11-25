@@ -116,7 +116,7 @@ Pre-commit (after `./scripts/install_git_hooks.sh`): same gates with `GATES_SKIP
 
 Mutmut is a CI / feat-006 gate, not every local init (too slow). Always `./scripts/run_mutmut.sh` (creates `prior_auth_mutmut_{i}` DBs and runs with `MUTMUT_MAX_CHILDREN`, default 4; each pytest session claims a slot so schema drops do not race).
 
-CI path filter: meta-only diffs (docs/gitignore/etc.) no-op lint/test/mutate/image so required checks still pass; code-path changes run the full suite. Never rely on `[skip ci]`.
+CI: thin `ci.yml` calls `changes`/`lint`/`test`/`mutate`/`image` workflows. Meta-only diffs no-op the heavy jobs so required checks still pass; code-path changes run the full suite. Never rely on `[skip ci]`. Protection contexts are `lint / lint` (etc.).
 
 Postman (feat-006): `uv run python scripts/generate_postman_collection.py` writes local `postman/*.json` from OpenAPI (gitignored) with seed demo bodies + per-route role tokens — do not hand-edit or commit them.
 
