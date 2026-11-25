@@ -78,3 +78,9 @@
 - `harness/session-handoff.md` full wishlist walkthrough; feat-012 marked done
 - Lane: **low** (docs/demo only)
 - Verify: `./scripts/demo.sh` (Compose when available); `./scripts/gates.sh`
+
+## 2026-11-25 — wishlist stretch complete on local main
+
+- `grit done -a wishlist-012` → merge `003ad4a`
+- Local `main` ahead of `origin/main` by 9 commits (008–012 + grit merges)
+- All feat-008…012 `done`; no active grit locks
