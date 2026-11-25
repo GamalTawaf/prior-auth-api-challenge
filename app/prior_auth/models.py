@@ -39,6 +39,14 @@ class PriorAuthRequest(Base):
             "(status <> 'decided') OR (decided_by_user_id IS NOT NULL)",
             name="ck_decided_requires_actor",
         ),
+        CheckConstraint(
+            "(status <> 'decided') OR (decided_at IS NOT NULL)",
+            name="ck_decided_requires_timestamp",
+        ),
+        CheckConstraint(
+            "(status <> 'in_review') OR (claimed_by_user_id IS NOT NULL)",
+            name="ck_in_review_requires_claimant",
+        ),
         Index("ix_pa_queue", "status", "claimed_by_user_id"),
         Index("ix_pa_member_created", "member_id", "created_at"),
         Index("ix_pa_practice_created", "practice_id", "created_at"),
@@ -79,6 +87,13 @@ class PriorAuthRequest(Base):
 
 class PriorAuthProcedure(Base):
     __tablename__ = "prior_auth_procedures"
+    __table_args__ = (
+        CheckConstraint("units >= 1", name="ck_procedure_units_at_least_one"),
+        CheckConstraint(
+            "(decision <> 'denied') OR (denial_reason IS NOT NULL AND btrim(denial_reason) <> '')",
+            name="ck_denied_requires_reason",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     request_id: Mapped[uuid.UUID] = mapped_column(
