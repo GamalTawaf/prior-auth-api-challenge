@@ -180,7 +180,7 @@ Scoped via `setup.cfg`: `source_paths=app/`, `only_mutate=app/prior_auth/service
 uv run python scripts/generate_postman_collection.py
 ```
 
-Writes `postman/*.json` from `app.openapi()` (not committed). Import the collection + environment in Postman (`Bearer {{token}}`; env has role tokens).
+Writes `postman/*.json` from `app.openapi()` (not committed). Import the collection + **Prior Auth Local** environment. Each request already has a role token, path vars, and a demo JSON body (seed `member_id` / ICD / CPT). After Submit, paste `id` → `request_id` and `procedures[0].id` → `procedure_id` in the env, then Claim / Decide.
 
 ## Live walkthrough
 
