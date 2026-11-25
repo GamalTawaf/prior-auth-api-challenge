@@ -102,3 +102,9 @@ class DecideIn(BaseModel):
 
 class ReassignIn(BaseModel):
     reviewer_id: uuid.UUID
+
+
+class ReviewerWorkloadOut(BaseModel):
+    reviewer_id: uuid.UUID
+    display_name: str
+    open_count: int
