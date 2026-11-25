@@ -114,7 +114,7 @@ When `pyproject.toml` exists, init installs the git pre-commit hook and runs:
 
 Pre-commit (after `./scripts/install_git_hooks.sh`): same gates with `GATES_SKIP_TESTS=1` (pytest still runs in CI/`./init.sh`).
 
-Mutmut is a CI / feat-006 gate, not every local init (too slow). Always `./scripts/run_mutmut.sh` (forces `--max-children 1` — parallel workers race on shared Postgres schema drops).
+Mutmut is a CI / feat-006 gate, not every local init (too slow). Always `./scripts/run_mutmut.sh` (creates `prior_auth_mutmut_{i}` DBs and runs with `MUTMUT_MAX_CHILDREN`, default 4; each pytest session claims a slot so schema drops do not race).
 
 Postman (feat-006): `uv run python scripts/generate_postman_collection.py` regenerates `postman/*.json` from OpenAPI — do not hand-edit the collection.
 
