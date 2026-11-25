@@ -19,7 +19,7 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql+psycopg://prior:prior@db:5432/prior_auth
-      JWT_SECRET: dev-only-change-me
+      JWT_SECRET: dev-only-change-me-32bytes-min!!
     depends_on:
       db:
         condition: service_healthy

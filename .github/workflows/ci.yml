@@ -18,7 +18,7 @@ jobs:
           --health-retries 15
     env:
       DATABASE_URL: postgresql+psycopg://prior:prior@localhost:5432/prior_auth
-      JWT_SECRET: ci-secret
+      JWT_SECRET: ci-secret-32-bytes-minimum-key!!
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -26,9 +26,7 @@ jobs:
           python-version: "3.15"
       - run: uv sync
       - run: uv run ruff check app tests
-      - name: migrate
-        run: uv run alembic upgrade head
-        continue-on-error: true
+      - run: uv run alembic upgrade head
       - run: uv run pytest -q --cov=app --cov-report=term-missing
 
   mutate:
@@ -49,18 +47,18 @@ jobs:
           --health-retries 15
     env:
       DATABASE_URL: postgresql+psycopg://prior:prior@localhost:5432/prior_auth
-      JWT_SECRET: ci-secret
+      JWT_SECRET: ci-secret-32-bytes-minimum-key!!
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.15"
       - run: uv sync
-      - name: mutmut
+      - run: uv run alembic upgrade head
+      - name: mutmut prior_auth services
         run: |
-          if [[ -d app/prior_auth/services ]]; then
-            uv run mutmut run --paths-to-mutate=app/prior_auth/services || true
-          fi
+          uv run mutmut run
+          uv run mutmut results
 
   image:
     runs-on: ubuntu-latest

@@ -2,6 +2,19 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.audit.router import router as audit_router
+from app.intake.router import router as intake_router
+from app.prior_auth.router import router as prior_auth_router
+from app.shared.errors import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationFailure,
+    conflict_handler,
+    forbidden_handler,
+    not_found_handler,
+    validation_failure_handler,
+)
 from app.telemetry import setup_telemetry
 
 
@@ -11,9 +24,26 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Prior Authorization API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="Prior Authorization API",
+    version="0.1.0",
+    lifespan=lifespan,
+    description=(
+        "Partner-facing prior authorization API. Errors use "
+        "`error_code`, `field`, `message`, and optional `correlation_id`."
+    ),
+)
+
+app.add_exception_handler(ValidationFailure, validation_failure_handler)
+app.add_exception_handler(ConflictError, conflict_handler)
+app.add_exception_handler(NotFoundError, not_found_handler)
+app.add_exception_handler(ForbiddenError, forbidden_handler)
+
+app.include_router(prior_auth_router)
+app.include_router(intake_router)
+app.include_router(audit_router)
 
 
-@app.get("/v1/health")
+@app.get("/v1/health", tags=["health"])
 def health() -> dict[str, str]:
     return {"status": "ok"}

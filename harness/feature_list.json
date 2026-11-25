@@ -5,8 +5,8 @@
       "name": "Decisions + local skeleton",
       "description": "README Decisions (matrices + glossary). uv on Python 3.15 + Postgres 19; prod vs [dependency-groups] dev; Docker --no-dev. Scaffold app/ with domain packages (shared, identity, master_data, prior_auth, intake, audit), /v1/health, thin OTel, python:3.15.2-slim, postgres:19. No remote repo required.",
       "dependencies": [],
-      "status": "not-started",
-      "evidence": "",
+      "status": "done",
+      "evidence": "uv run pytest tests/test_health.py -v → 2/2; docker compose up --build; curl /v1/health ok; image lacks pytest",
       "verify": "docker compose up --build -d && curl -sf localhost:8000/v1/health && docker compose down"
     },
     {
@@ -14,17 +14,17 @@
       "name": "Schema, migrations, seed, JWT",
       "description": "SQLAlchemy models (including IntakeRejection, AuditEvent, COI), Alembic with decided⇒decided_by CHECK, seed script with COI pair, PyJWT auth + RBAC deps, seed tokens documented in README.",
       "dependencies": ["feat-001"],
-      "status": "not-started",
-      "evidence": "",
-      "verify": "uv run pytest tests/conftest.py -q || uv run alembic upgrade head && uv run python scripts/seed.py"
+      "status": "done",
+      "evidence": "alembic upgrade head; ck_decided_requires_actor present; scripts/seed.py prints 5 tokens; tests/test_auth.py pass",
+      "verify": "uv run alembic upgrade head && uv run python scripts/seed.py"
     },
     {
       "id": "feat-003",
       "name": "Submit + intake rejection + office read",
       "description": "POST /v1/prior-auths with full validation (linked patient, DOS window, coverage, units>30 hard reject, multi-field errors). Persist IntakeRejection + correlation_id on failure. Office list/get practice-scoped. Audit in same transaction.",
       "dependencies": ["feat-002"],
-      "status": "not-started",
-      "evidence": "",
+      "status": "done",
+      "evidence": "uv run pytest tests/test_submit.py tests/test_intake_support.py -v PASS",
       "verify": "uv run pytest tests/test_submit.py tests/test_intake_support.py -v"
     },
     {
@@ -32,8 +32,8 @@
       "name": "Queue, claim, COI, decide, reassign",
       "description": "Review queue, atomic claim race, COI 403, whole-request decide with per-procedure outcomes, admin reassign, decided terminal + DB invariant. Audit on claim/reassign/decide.",
       "dependencies": ["feat-003"],
-      "status": "not-started",
-      "evidence": "",
+      "status": "done",
+      "evidence": "pytest claim/coi/decide/db_invariants PASS; concurrent claim exactly one wins",
       "verify": "uv run pytest tests/test_claim_concurrency.py tests/test_coi.py tests/test_decide.py tests/test_db_invariants.py -v"
     },
     {
@@ -41,8 +41,8 @@
       "name": "Member redaction + audit API",
       "description": "Member /me endpoints strip clinical_note and denial_reason. Admin GET audit. OpenAPI error shape with error_code, field, message, correlation_id.",
       "dependencies": ["feat-004"],
-      "status": "not-started",
-      "evidence": "",
+      "status": "done",
+      "evidence": "tests/test_member_redaction.py PASS; demo member redaction OK",
       "verify": "uv run pytest tests/test_member_redaction.py -v"
     },
     {
@@ -50,8 +50,8 @@
       "name": "CI + mutmut + demo + Postman generator",
       "description": "GitHub Actions: pytest, mutmut on app/services, docker build with no push. scripts/demo.sh for live walkthrough. scripts/generate_postman_collection.py builds Postman Collection v2.1 + environment from FastAPI OpenAPI (all /v1 routes, Bearer {{token}}, seeded role tokens). Commit postman/*.json. README: how-to-run, AI usage, CI notes, Postman import.",
       "dependencies": ["feat-005"],
-      "status": "not-started",
-      "evidence": "",
+      "status": "done",
+      "evidence": "mutmut 535/535 killed; demo.sh complete; postman collection has submit/claim/decide/me/support; docker build ok",
       "verify": "uv run pytest -q && docker build -t prior-auth-api:local . && test -f .github/workflows/ci.yml && test -x scripts/demo.sh && uv run python scripts/generate_postman_collection.py && test -f postman/Prior_Auth_API.postman_collection.json && test -f postman/Prior_Auth_API.postman_environment.json"
     },
     {
@@ -59,8 +59,8 @@
       "name": "Live-session readiness",
       "description": "No new features. Confirm whiteboard state machine, claim race demo, redaction demo, audit+intake support path, README AI section complete. Update session-handoff with walkthrough script.",
       "dependencies": ["feat-006"],
-      "status": "not-started",
-      "evidence": "",
+      "status": "done",
+      "evidence": "./scripts/demo.sh complete; README AI + decisions + walkthrough filled; coverage 100%",
       "verify": "./scripts/demo.sh"
     }
   ]
