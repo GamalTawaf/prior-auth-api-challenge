@@ -3,10 +3,18 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 from enum import StrEnum
+from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.prior_auth.limits import MAX_CLINICAL_NOTE, MAX_DENIAL_REASON, MAX_PROCEDURES
+
+PriorAuthStatus = Literal["submitted", "in_review", "decided"]
+ProcedureDecisionValue = Literal["pending", "approved", "denied"]
+# Decide accepts only approved/denied; OpenAPI documents that contract while the
+# service still validates and emits invalid_decision for other strings.
+ProcedureDecisionChoice = Literal["approved", "denied"]
+_PROCEDURE_DECISION_CHOICES = list(get_args(ProcedureDecisionChoice))
 
 
 class ProcedureIn(BaseModel):
@@ -30,7 +38,7 @@ class ProcedureOut(BaseModel):
     code: str
     units: int
     sequence: int
-    decision: str
+    decision: ProcedureDecisionValue
     denial_reason: str | None = None
 
 
@@ -44,7 +52,7 @@ class PriorAuthOut(BaseModel):
     diagnosis_icd10: str
     date_of_service: date
     clinical_note: str | None
-    status: str
+    status: PriorAuthStatus
     claimed_by_user_id: uuid.UUID | None
     claimed_at: datetime | None
     decided_by_user_id: uuid.UUID | None
@@ -73,7 +81,7 @@ class MemberPriorAuthOut(BaseModel):
     practice_id: uuid.UUID
     diagnosis_icd10: str
     date_of_service: date
-    status: str
+    status: PriorAuthStatus
     decided_at: datetime | None
     created_at: datetime
     procedures: list[MemberProcedureOut]
@@ -81,7 +89,10 @@ class MemberPriorAuthOut(BaseModel):
 
 class ProcedureDecisionIn(BaseModel):
     procedure_id: uuid.UUID
-    decision: str
+    decision: Annotated[
+        str,
+        Field(json_schema_extra={"enum": _PROCEDURE_DECISION_CHOICES}),
+    ]
     denial_reason: str | None = Field(default=None, max_length=MAX_DENIAL_REASON)
 
 
