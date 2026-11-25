@@ -77,13 +77,15 @@ Audit writes in the **same DB transaction** as the state change.
 
 ### Visibility matrix
 
-| Field / capability | Member | Office (own practice) | Reviewer | Ops admin |
-|--------------------|--------|----------------------|----------|-----------|
-| List/get requests | own only | own practice | queue unclaimed + own claimed | all |
-| clinical_note | ❌ | ✅ | ✅ | ✅ |
-| denial_reason / reasoning | ❌ (approved \| not_approved only) | ✅ | ✅ | ✅ |
-| Audit trail | ❌ | — | ❌ | ✅ |
-| IntakeRejection lookup | ❌ | own practice by correlation_id | ❌ | all |
+| Field / capability | Member | Office (own practice) | Reviewer | Ops admin | Auditor |
+|--------------------|--------|----------------------|----------|-----------|---------|
+| List/get requests | own only | own practice | queue unclaimed + own claimed | all | all (read) |
+| clinical_note | ❌ | ✅ | ✅ | ✅ | ✅ |
+| denial_reason / reasoning | ❌ (approved \| not_approved only) | ✅ | ✅ | ✅ | ✅ |
+| Audit trail | ❌ | — | ❌ | ✅ | ✅ |
+| IntakeRejection lookup | ❌ | own practice by correlation_id | ❌ | all | ❌ |
+| Workload | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Mutations (submit/claim/decide/reassign) | ❌ | submit only | claim/decide | reassign | ❌ |
 
 ### Glossary
 
@@ -127,26 +129,53 @@ Partners may send `Idempotency-Key` on `POST /v1/prior-auths`. Scope is `(practi
 Same key + same body replays the stored **201**; same key + different body → **409**
 `idempotency_key_reuse`. Missing header = non-idempotent create. Keys are intended to live
 **~24h** for partner retries; TTL prune is optional / YAGNI for this take-home.
+Defendable one-liner: partner POST timed out; retry must not double-create. Claim/decide
+are already conflict-safe via the state machine, so only submit takes the header.
+
+### Reviewer workload
+
+`GET /v1/reviewers/workload` — **ops_admin only**. Returns every `role=reviewer` with
+`open_count` = count of `status=in_review` claimed by that reviewer (LEFT JOIN, zeros
+included so team leads see idle staff).
+
+### Decision notify (outbox → MailDev)
+
+`decide` writes an `outbox_events` row in the **same DB transaction** as the decision +
+audit. Compose `outbox-worker` polls and SMTP-sends to **MailDev** (`SMTP 1025`, UI
+[http://localhost:1080](http://localhost:1080)). To: `practices.notification_email`. Body
+is thin (request id / member / DOS / procedure outcomes) — no `clinical_note` or
+`denial_reason` text. API never opens SMTP.
+
+```bash
+docker compose up -d db maildev api outbox-worker
+# after decide: open MailDev UI, or GET http://localhost:1080/email
+```
+
+### Auditor role
+
+Seed user `auditor@example.com`. Read-only: `GET …/audit`, list/get all requests.
+Mutations, `/me`, and workload → **403**. Least privilege vs ops_admin (admins still
+reassign / read audit).
 
 ### Cut list (not built)
 
-GraphQL, event bus, microservices, real IdP, appeals, retro review, CRUD UIs, AWS deploy, real SES/SendGrid (MailDev only).
+GraphQL, event bus, microservices, real IdP, appeals, retro review, CRUD UIs, AWS deploy,
+real SES/SendGrid (MailDev only).
 
-### Wishlist stretch (feat-008…012)
+### Wishlist stretch (feat-008…012) — shipped
 
 Plan: [`docs/plans/2026-11-25-wishlist-outbox-maildev.md`](docs/plans/2026-11-25-wishlist-outbox-maildev.md).
+All items above are implemented; cut list no longer includes them.
 
 | Feature | Behavior | Lane |
 |---------|----------|------|
-| feat-008 | **Implemented** — `GET /v1/reviewers/workload` (ops_admin; all reviewers + `open_count`) | medium |
-| feat-009 | **Implemented** — decide enqueues transactional outbox → Compose **MailDev** (SMTP 1025 / UI 1080) via `outbox-worker` | medium |
-| feat-010 | **Implemented** — `auditor` role; `AdminOrAuditor` on audit GET; read-all list/get; mutations 403 | high |
-| feat-011 | **Implemented** — `Idempotency-Key` on `POST /v1/prior-auths` only (24h TTL story; prune optional) | high |
-| feat-012 | README + `demo.sh` for the above | low |
+| feat-008 | `GET /v1/reviewers/workload` (ops_admin; all reviewers + `open_count`) | medium |
+| feat-009 | decide → transactional outbox → MailDev via `outbox-worker` | medium |
+| feat-010 | `auditor` role; audit + list/get read; mutations 403 | high |
+| feat-011 | `Idempotency-Key` on `POST /v1/prior-auths` (~24h TTL story) | high |
+| feat-012 | README + `demo.sh` walkthrough for the above | low |
 
-**feat-009 demo:** `docker compose up -d db maildev api outbox-worker` then decide a request; open MailDev UI at http://localhost:1080. Worker: `python -m app.outbox.worker`. Email body is thin (request id / member / DOS / procedure outcomes only — no clinical_note or denial_reason text).
-
-Implement one feature per agent. Prefer **[grit](https://github.com/rtk-ai/grit)** (`grit claim` → `.grit/worktrees/<agent>/` → `grit done`) when agents run in parallel; reindex with `./scripts/grit_reindex.sh`. Stack or serialize **Alembic** heads even under grit (AST locks do not merge migration graphs).
+Prefer **[grit](https://github.com/rtk-ai/grit)** (`grit claim` → `.grit/worktrees/<agent>/` → `grit done`) when agents run in parallel; reindex with `./scripts/grit_reindex.sh`. Stack or serialize **Alembic** heads even under grit (AST locks do not merge migration graphs).
 
 ### Coding standards
 
@@ -216,10 +245,12 @@ Writes `postman/*.json` from `app.openapi()` (not committed). Import the collect
 ## Live walkthrough
 
 ```bash
+docker compose up -d   # db + api + maildev + outbox-worker
 ./scripts/demo.sh
 ```
 
-Covers: failed submit → support lookup → happy submit → claim + 409 race → COI 403 → decide → member redaction.
+Covers: failed submit → support → happy submit → **Idempotency-Key replay** → claim + 409
+→ workload → COI 403 → decide → **MailDev check** → auditor audit GET → member redaction.
 
 ## How AI was used
 
