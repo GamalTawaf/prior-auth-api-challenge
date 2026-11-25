@@ -25,7 +25,7 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -52,7 +52,7 @@ jobs:
       - name: skip (meta-only change)
         if: needs.changes.outputs.code != 'true'
         run: echo "Skipping lint — no code paths changed"
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: needs.changes.outputs.code == 'true'
       - uses: ./.github/actions/setup-project
         if: needs.changes.outputs.code == 'true'
@@ -89,7 +89,7 @@ jobs:
       - name: skip (meta-only change)
         if: needs.changes.outputs.code != 'true'
         run: echo "Skipping test — no code paths changed"
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: needs.changes.outputs.code == 'true'
       - uses: ./.github/actions/setup-project
         if: needs.changes.outputs.code == 'true'
@@ -120,7 +120,7 @@ jobs:
       - name: skip (meta-only change)
         if: needs.changes.outputs.code != 'true'
         run: echo "Skipping mutate — no code paths changed"
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: needs.changes.outputs.code == 'true'
       - uses: ./.github/actions/setup-project
         if: needs.changes.outputs.code == 'true'
@@ -140,7 +140,7 @@ jobs:
       - name: skip (meta-only change)
         if: needs.changes.outputs.code != 'true'
         run: echo "Skipping image — no code paths changed"
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: needs.changes.outputs.code == 'true'
       - name: docker build (no push)
         if: needs.changes.outputs.code == 'true'
