@@ -61,7 +61,7 @@ Stop at the first rung that holds: YAGNI → stdlib/platform → installed dep �
 - Python **3.15.x** (latest stable major; `.python-version` = `3.15`). Prefer Homebrew/Docker **3.15.2** (or newer 3.15.x) over a uv-managed beta if `uv python list` only offers prereleases. Package manager **`uv`** only.
 - PostgreSQL **19** in Compose/CI (`postgres:19`).
 - All deps: **latest stable** at scaffold; no alphas/RCs except OTel instrumentations’ upstream `0.xbY` line paired with API/SDK 1.x (see Version policy). Lock in `uv.lock`.
-- **Split prod vs dev in uv:** runtime packages in `[project].dependencies`; test/lint/mutation in `[dependency-groups] dev`. Add with `uv add …` vs `uv add --dev …`. Local/CI: `uv sync` (includes dev). Docker prod image: `uv sync --frozen --no-dev` (or `--no-group dev`). Never put pytest/ruff/mutmut/httpx (test client) in prod deps.
+- **Split prod vs dev in uv:** runtime packages in `[project].dependencies`; test/lint/mutation in `[dependency-groups] dev`. Add with `uv add …` vs `uv add --dev …`. Local/CI: `uv sync` (includes dev). Docker prod image: `uv sync --frozen --no-dev` (or `--no-group dev`). Never put pytest/ruff/mutmut/httpx2 (test client) in prod deps.
 - Logging + metrics via **OpenTelemetry** (OTLP-exportable; console/exporter stub OK locally). Keep `telemetry.py` thin.
 - Docker: **multi-stage** on `python:3.15.2-slim` (or newer 3.15.x-slim); Compose = API + `postgres:19`.
 - CI: GitHub Actions builds image (**no registry push**) and runs tests (pytest + mutmut).
@@ -346,7 +346,7 @@ Python and PostgreSQL do not brand “LTS” like Node; each supported major get
 | psycopg[binary] | **prod** | ≥3.3.9 | |
 | opentelemetry-api / sdk / exporter-otlp | **prod** | ≥1.45.2 | |
 | opentelemetry-instrumentation-* | **prod** | match SDK (e.g. 0.66b2) | Upstream `0.xbY` pairing |
-| httpx | **dev** | ≥0.28.1 | ASGI test client only |
+| httpx2 | **dev** | ≥2.0.0 | Starlette/FastAPI TestClient (httpx deprecated) |
 | pytest | **dev** | ≥9.2.0 | |
 | mutmut | **dev** | ≥3.8.1 | |
 | ruff | **dev** | ≥0.17.6 | |
@@ -573,6 +573,17 @@ jobs:
 - Mocking Pydantic / skipping validation  
 - Calling service functions as the primary proof that an endpoint works  
 - Broad `MagicMock` of the app or `dependency_overrides` that replace business services (overrides OK only to inject a fake DB session or fake external client)
+- Copy-pasted HTTP/setup in tests — use `tests/conftest.py` helpers or `@pytest.mark.parametrize`; add a helper on the second copy
+- Duplicated domain logic across services/routers — extract shared utils (e.g. `services/common.py`, `raise_validation`) when the pattern appears twice
+
+### Commit / CI quality gates (locked)
+
+- **ruff** format + lint on `app` `tests` `scripts`
+- **call-style** — no nested non-constructor calls / `IfExp` / BoolOp / lambda in call args (`scripts/check_call_style.py`)
+- **FastAPI compile** — `scripts/check_fastapi_compile.py` in pre-commit gates and CI
+- **pytest** with **100%** line+branch coverage
+- **Visible step summaries** on every gates/CI step (`### …` + `$GITHUB_STEP_SUMMARY`)
+- Local: `./scripts/gates.sh`; pre-commit may set `GATES_SKIP_TESTS=1` (full suite still in CI / `./init.sh`)
 
 ## Test plan (minimum)
 

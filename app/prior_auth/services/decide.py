@@ -1,49 +1,24 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
-from app.audit.writer import write_audit
+from app.clock import utc_now
 from app.identity.schemas import UserContext
-from app.master_data.models import ReviewerMemberConflict
-from app.prior_auth.models import PriorAuthRequest, ProcedureDecision, RequestStatus
+from app.prior_auth.models import ProcedureDecision, RequestStatus
 from app.prior_auth.schemas import DecideIn
-from app.shared.errors import (
-    ConflictError,
-    FieldError,
-    ForbiddenError,
-    NotFoundError,
-    ValidationFailure,
-)
+from app.prior_auth.services.common import audit_commit_refresh, get_request_for_update, has_coi
+from app.shared.errors import ConflictError, FieldError, ForbiddenError, raise_validation
 
 
-def decide_request(
-    db: Session, reviewer: UserContext, request_id: uuid.UUID, body: DecideIn
-) -> PriorAuthRequest:
-    procedures_load = selectinload(PriorAuthRequest.procedures)
-    stmt = (
-        select(PriorAuthRequest)
-        .where(PriorAuthRequest.id == request_id)
-        .options(procedures_load)
-        .with_for_update()
-    )
-    request = db.scalar(stmt)
-    if request is None:
-        raise NotFoundError("Prior auth request not found")
+def decide_request(db: Session, reviewer: UserContext, request_id: uuid.UUID, body: DecideIn):
+    request = get_request_for_update(db, request_id, load_procedures=True)
     if request.status == RequestStatus.decided:
         raise ConflictError("Request already decided")
     if request.status != RequestStatus.in_review or request.claimed_by_user_id != reviewer.user_id:
         raise ForbiddenError("Only the claim holder may decide")
-
-    coi_stmt = select(ReviewerMemberConflict).where(
-        ReviewerMemberConflict.reviewer_user_id == reviewer.user_id,
-        ReviewerMemberConflict.member_id == request.member_id,
-    )
-    coi = db.scalar(coi_stmt)
-    if coi is not None:
+    if has_coi(db, reviewer.user_id, request.member_id):
         raise ForbiddenError("Conflict of interest with this member")
 
     by_id = {p.id: p for p in request.procedures}
@@ -78,22 +53,20 @@ def decide_request(
             )
 
     if errors:
-        correlation_id = uuid.uuid4().hex
-        raise ValidationFailure(correlation_id=correlation_id, errors=errors)
+        raise_validation(errors)
 
-    now = datetime.now(UTC)
+    now = utc_now()
     for outcome in body.outcomes:
         proc = by_id[outcome.procedure_id]
         proc.decision = ProcedureDecision(outcome.decision)
         if outcome.decision == "denied":
-            proc.denial_reason = outcome.denial_reason.strip() if outcome.denial_reason else None
+            proc.denial_reason = str(outcome.denial_reason).strip()
         else:
             proc.denial_reason = None
 
     request.status = RequestStatus.decided
     request.decided_by_user_id = reviewer.user_id
     request.decided_at = now
-    request_id_str = str(request_id)
     outcomes_payload = [
         {
             "procedure_id": str(o.procedure_id),
@@ -102,13 +75,10 @@ def decide_request(
         }
         for o in body.outcomes
     ]
-    write_audit(
+    return audit_commit_refresh(
         db,
+        request,
         actor_user_id=reviewer.user_id,
         action="decide",
-        payload={"request_id": request_id_str, "outcomes": outcomes_payload},
-        request_id=request_id,
+        payload={"request_id": str(request_id), "outcomes": outcomes_payload},
     )
-    db.commit()
-    db.refresh(request)
-    return request

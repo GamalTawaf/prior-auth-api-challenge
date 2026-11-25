@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import Generator
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -163,13 +163,21 @@ def client(db: Session, seed_data: dict) -> Generator[TestClient]:
     app.dependency_overrides.clear()
 
 
+TWO_PROCEDURES = [
+    {"code": "99213", "units": 1},
+    {"code": "99214", "units": 2},
+]
+
+
 def auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def valid_submit_body(seed: dict, **overrides) -> dict:
-    from app.clock import get_today
+def role_headers(client: TestClient, role: str) -> dict[str, str]:
+    return auth(client.seed["tokens"][role])
 
+
+def valid_submit_body(seed: dict, **overrides) -> dict:
     body = {
         "member_id": str(seed["member"].id),
         "diagnosis_icd10": "J06.9",
@@ -179,3 +187,238 @@ def valid_submit_body(seed: dict, **overrides) -> dict:
     }
     body.update(overrides)
     return body
+
+
+def assert_has_error_code(
+    response,
+    error_code: str,
+    *,
+    field: str | None = None,
+    message: str | None = None,
+    message_contains: str | None = None,
+) -> dict:
+    assert response.status_code == 422, response.text
+    payload = response.json()
+    matches = [e for e in payload["errors"] if e["error_code"] == error_code]
+    assert matches, payload
+    match = matches[0]
+    assert isinstance(match.get("message"), str) and match["message"], match
+    if field is not None:
+        assert match["field"] == field, match
+    if message is not None:
+        assert match["message"] == message, match
+    if message_contains is not None:
+        assert message_contains in match["message"], match
+    return payload
+
+
+def submit_as_office(client: TestClient, **overrides):
+    response = client.post(
+        "/v1/prior-auths",
+        headers=role_headers(client, "office"),
+        json=valid_submit_body(client.seed, **overrides),
+    )
+    return response
+
+
+def submit_ok(client: TestClient, **overrides) -> dict:
+    response = submit_as_office(client, **overrides)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def claim_as(client: TestClient, request_id: str, role: str = "reviewer"):
+    return client.post(
+        f"/v1/prior-auths/{request_id}/claim",
+        headers=role_headers(client, role),
+    )
+
+
+def get_as(client: TestClient, request_id: str, role: str):
+    return client.get(
+        f"/v1/prior-auths/{request_id}",
+        headers=role_headers(client, role),
+    )
+
+
+def decide_as(client: TestClient, request_id: str, outcomes: list[dict], role: str = "reviewer"):
+    return client.post(
+        f"/v1/prior-auths/{request_id}/decision",
+        headers=role_headers(client, role),
+        json={"outcomes": outcomes},
+    )
+
+
+def reassign_as(client: TestClient, request_id: str, reviewer_id, role: str = "admin"):
+    return client.post(
+        f"/v1/prior-auths/{request_id}/reassign",
+        headers=role_headers(client, role),
+        json={"reviewer_id": str(reviewer_id)},
+    )
+
+
+def submit_and_claim(client: TestClient, **overrides) -> dict:
+    created = submit_ok(client, **overrides)
+    claimed = claim_as(client, created["id"])
+    assert claimed.status_code == 200, claimed.text
+    return claimed.json()
+
+
+def approve_all_outcomes(procedures: list[dict]) -> list[dict]:
+    return [{"procedure_id": p["id"], "decision": "approved"} for p in procedures]
+
+
+def get_intake_rejection_as(client: TestClient, correlation_id: str, role: str = "office"):
+    return client.get(
+        f"/v1/support/intake-rejections/{correlation_id}",
+        headers=role_headers(client, role),
+    )
+
+
+def get_audit_as(client: TestClient, request_id: str, role: str = "admin"):
+    return client.get(
+        f"/v1/prior-auths/{request_id}/audit",
+        headers=role_headers(client, role),
+    )
+
+
+def race_attempt(fn):
+    """Wrap a side-effecting call: success → 'won', ConflictError → 'lost'."""
+    from app.shared.errors import ConflictError
+
+    def _run() -> str:
+        try:
+            fn()
+            return "won"
+        except ConflictError:
+            return "lost"
+
+    return _run
+
+
+def make_other_office(db: Session, *, name: str = "Other") -> User:
+    practice = Practice(id=uuid.uuid4(), name=name)
+    db.add(practice)
+    db.flush()
+    office = User(
+        id=uuid.uuid4(),
+        email=f"other-{uuid.uuid4().hex[:6]}@ex.com",
+        role=UserRole.provider_office,
+        practice_id=practice.id,
+        display_name=name,
+    )
+    db.add(office)
+    db.flush()
+    return office
+
+
+def encode_raw_jwt(payload: dict) -> str:
+    import jwt
+
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def raw_token(**claims) -> str:
+    """Hand-built JWT that is unexpired unless the caller overrides `exp`."""
+    expires_at = datetime.now(UTC) + timedelta(hours=1)
+    payload = {"exp": expires_at}
+    payload.update(claims)
+    return encode_raw_jwt(payload)
+
+
+def seed_race_fixture(
+    engine,
+    *,
+    status,
+    claimed_by_reviewer: bool = False,
+    name: str = "Race",
+) -> dict:
+    """Standalone committed graph for concurrency tests (outside the nested-tx fixture)."""
+    from app.prior_auth.models import PriorAuthProcedure, PriorAuthRequest
+
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    with SessionLocal() as db:
+        practice = Practice(id=uuid.uuid4(), name=f"{name} Practice")
+        member = Member(
+            id=uuid.uuid4(),
+            external_id=f"{name[0]}-{uuid.uuid4().hex[:6]}",
+            full_name=name,
+        )
+        db.add_all([practice, member])
+        db.flush()
+        db.add(PatientPracticeLink(member_id=member.id, practice_id=practice.id))
+        today = get_today()
+        db.add(
+            Coverage(
+                member_id=member.id,
+                payer_name="P",
+                effective_from=today - timedelta(days=1),
+                effective_to=today + timedelta(days=30),
+            )
+        )
+        office = User(
+            id=uuid.uuid4(),
+            email=f"o-{uuid.uuid4().hex[:6]}@ex.com",
+            role=UserRole.provider_office,
+            practice_id=practice.id,
+            display_name="O",
+        )
+        r1 = User(
+            id=uuid.uuid4(),
+            email=f"r1-{uuid.uuid4().hex[:6]}@ex.com",
+            role=UserRole.reviewer,
+            display_name="R1",
+        )
+        r2 = User(
+            id=uuid.uuid4(),
+            email=f"r2-{uuid.uuid4().hex[:6]}@ex.com",
+            role=UserRole.reviewer,
+            display_name="R2",
+        )
+        db.add_all([office, r1, r2])
+        db.flush()
+        claimed_by = r1.id if claimed_by_reviewer else None
+        request = PriorAuthRequest(
+            id=uuid.uuid4(),
+            member_id=member.id,
+            practice_id=practice.id,
+            submitted_by_user_id=office.id,
+            diagnosis_icd10="J06.9",
+            date_of_service=today,
+            status=status,
+            claimed_by_user_id=claimed_by,
+        )
+        proc = PriorAuthProcedure(code="99213", units=1, sequence=1)
+        request.procedures.append(proc)
+        db.add(request)
+        db.commit()
+        return {
+            "session_factory": SessionLocal,
+            "request_id": request.id,
+            "procedure_id": proc.id,
+            "reviewer1_id": r1.id,
+            "reviewer2_id": r2.id,
+            "office_id": office.id,
+        }
+
+
+def run_two_thread_race(targets: list) -> list[str]:
+    """Run two callables behind a barrier; each returns 'won' or 'lost'."""
+    import threading
+
+    outcomes: list[str] = []
+    barrier = threading.Barrier(2)
+    lock = threading.Lock()
+
+    def wrap(fn) -> None:
+        barrier.wait(timeout=5)
+        result = fn()
+        with lock:
+            outcomes.append(result)
+
+    threads = [threading.Thread(target=wrap, args=(fn,), daemon=True) for fn in targets]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=15)
+    return outcomes

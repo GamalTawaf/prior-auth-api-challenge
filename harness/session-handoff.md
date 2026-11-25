@@ -20,4 +20,8 @@ None.
 
 ## Next
 
+Coding/quality rules (dedup helpers+parametrize, call-style, ruff, FastAPI compile, gate summaries, 100% coverage) live in `AGENTS.md` + `.cursor/rules/coding-gates.mdc` + plan Testing strategy.
+
+PR risk lanes (`low` / `medium` / `high` labels) live in `AGENTS.md` § Pull requests, `.cursor/rules/pr-lanes.mdc`, and `.github/PULL_REQUEST_TEMPLATE.md`. Agents must label every PR.
+
 When ready to submit: private GitHub from template, push, add collaborator `rgavrilov5`.

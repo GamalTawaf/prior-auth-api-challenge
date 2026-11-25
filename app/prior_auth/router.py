@@ -17,6 +17,7 @@ from app.prior_auth.schemas import (
 )
 from app.prior_auth.serializers import to_member_out, to_prior_auth_out
 from app.prior_auth.services.claim import claim_request
+from app.prior_auth.services.common import coi_free_clause, get_request, has_coi
 from app.prior_auth.services.decide import decide_request
 from app.prior_auth.services.reassign import reassign_request
 from app.prior_auth.services.submit import submit_prior_auth
@@ -34,11 +35,6 @@ from app.shared.errors import ForbiddenError, NotFoundError
 router = APIRouter(tags=["prior-auth"])
 
 _PROCEDURES = selectinload(PriorAuthRequest.procedures)
-
-
-def _load(db, request_id: uuid.UUID) -> PriorAuthRequest | None:
-    stmt = select(PriorAuthRequest).where(PriorAuthRequest.id == request_id).options(_PROCEDURES)
-    return db.scalar(stmt)
 
 
 @router.post("/v1/prior-auths", response_model=PriorAuthOut, status_code=201)
@@ -60,9 +56,7 @@ def list_prior_auths(db: DbSession, ctx: OfficeOrAdmin) -> list[PriorAuthOut]:
 
 @router.get("/v1/prior-auths/{request_id}", response_model=PriorAuthOut)
 def get_prior_auth(request_id: uuid.UUID, db: DbSession, ctx: CurrentUser) -> PriorAuthOut:
-    request = _load(db, request_id)
-    if request is None:
-        raise NotFoundError("Prior auth request not found")
+    request = get_request(db, request_id, load_procedures=True)
     if ctx.role == UserRole.provider_office:
         if request.practice_id != ctx.practice_id:
             raise NotFoundError("Prior auth request not found")
@@ -71,6 +65,8 @@ def get_prior_auth(request_id: uuid.UUID, db: DbSession, ctx: CurrentUser) -> Pr
         queueable = request.status == RequestStatus.submitted and request.claimed_by_user_id is None
         if not (own or queueable):
             raise ForbiddenError("Not allowed to view this request")
+        if has_coi(db, ctx.user_id, request.member_id):
+            raise ForbiddenError("Conflict of interest with this member")
     elif ctx.role == UserRole.ops_admin:
         pass
     else:
@@ -82,9 +78,10 @@ def get_prior_auth(request_id: uuid.UUID, db: DbSession, ctx: CurrentUser) -> Pr
 def review_queue(db: DbSession, ctx: ReviewerUser) -> list[PriorAuthOut]:
     unclaimed = PriorAuthRequest.claimed_by_user_id.is_(None)
     oldest_first = PriorAuthRequest.created_at.asc()
+    conflict_free = coi_free_clause(ctx.user_id)
     stmt = (
         select(PriorAuthRequest)
-        .where(PriorAuthRequest.status == RequestStatus.submitted, unclaimed)
+        .where(PriorAuthRequest.status == RequestStatus.submitted, unclaimed, conflict_free)
         .options(_PROCEDURES)
         .order_by(oldest_first)
     )
@@ -127,7 +124,7 @@ def my_prior_auths(db: DbSession, ctx: MemberUser) -> list[MemberPriorAuthOut]:
 
 @router.get("/v1/me/prior-auths/{request_id}", response_model=MemberPriorAuthOut)
 def my_prior_auth(request_id: uuid.UUID, db: DbSession, ctx: MemberUser) -> MemberPriorAuthOut:
-    request = _load(db, request_id)
-    if request is None or request.member_id != ctx.member_id:
+    request = get_request(db, request_id, load_procedures=True)
+    if request.member_id != ctx.member_id:
         raise NotFoundError("Prior auth request not found")
     return to_member_out(request)

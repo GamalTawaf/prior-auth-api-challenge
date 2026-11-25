@@ -221,11 +221,13 @@ jobs:
       - run: uv sync
       - run: uv run alembic upgrade head
       - name: mutmut prior_auth services
+        env:
+          # Drive toward 0; parallel mutmut is unsafe on shared Postgres (see scripts/run_mutmut.sh).
+          MUTMUT_MAX_SURVIVORS: "0"
         run: |
           set -o pipefail
           out="$(mktemp)"
-          if uv run mutmut run | tee "$out"; then
-            uv run mutmut results | tee -a "$out" || true
+          if ./scripts/run_mutmut.sh | tee "$out"; then
             {
               echo "### mutmut: PASSED"
               echo ""

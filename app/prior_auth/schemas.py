@@ -6,9 +6,11 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.prior_auth.limits import MAX_CLINICAL_NOTE, MAX_DENIAL_REASON, MAX_PROCEDURES
+
 
 class ProcedureIn(BaseModel):
-    # Bounds enforced in submit service so failures become IntakeRejection rows
+    # Units bounds enforced in submit service so failures become IntakeRejection rows
     code: str
     units: int
 
@@ -17,8 +19,8 @@ class SubmitPriorAuthIn(BaseModel):
     member_id: uuid.UUID
     diagnosis_icd10: str
     date_of_service: date
-    clinical_note: str | None = None
-    procedures: list[ProcedureIn] = Field(default_factory=list)
+    clinical_note: str | None = Field(default=None, max_length=MAX_CLINICAL_NOTE)
+    procedures: list[ProcedureIn] = Field(default_factory=list, max_length=MAX_PROCEDURES)
 
 
 class ProcedureOut(BaseModel):
@@ -80,11 +82,11 @@ class MemberPriorAuthOut(BaseModel):
 class ProcedureDecisionIn(BaseModel):
     procedure_id: uuid.UUID
     decision: str
-    denial_reason: str | None = None
+    denial_reason: str | None = Field(default=None, max_length=MAX_DENIAL_REASON)
 
 
 class DecideIn(BaseModel):
-    outcomes: list[ProcedureDecisionIn] = Field(min_length=1)
+    outcomes: list[ProcedureDecisionIn] = Field(min_length=1, max_length=MAX_PROCEDURES)
 
 
 class ReassignIn(BaseModel):

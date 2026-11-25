@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from tests.conftest import auth, valid_submit_body
+from tests.conftest import approve_all_outcomes, decide_as, get_as, submit_and_claim
 
 
 def test_decided_requires_actor_check(db: Session, seed_data: dict):
@@ -28,22 +28,11 @@ def test_decided_requires_actor_check(db: Session, seed_data: dict):
 
 
 def test_http_decide_always_sets_decided_by(client: TestClient, db: Session):
-    created = client.post(
-        "/v1/prior-auths",
-        headers=auth(client.seed["tokens"]["office"]),
-        json=valid_submit_body(client.seed),
-    )
-    rid = created.json()["id"]
-    client.post(f"/v1/prior-auths/{rid}/claim", headers=auth(client.seed["tokens"]["reviewer"]))
-    procs = created.json()["procedures"]
-    # refresh procedures after claim via get
-    detail = client.get(f"/v1/prior-auths/{rid}", headers=auth(client.seed["tokens"]["reviewer"]))
+    data = submit_and_claim(client)
+    rid = data["id"]
+    detail = get_as(client, rid, "reviewer")
     procs = detail.json()["procedures"]
-    decided = client.post(
-        f"/v1/prior-auths/{rid}/decision",
-        headers=auth(client.seed["tokens"]["reviewer"]),
-        json={"outcomes": [{"procedure_id": p["id"], "decision": "approved"} for p in procs]},
-    )
+    decided = decide_as(client, rid, approve_all_outcomes(procs))
     assert decided.status_code == 200
     row = db.execute(
         text("SELECT decided_by_user_id IS NOT NULL FROM prior_auth_requests WHERE id = :id"),

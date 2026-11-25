@@ -6,6 +6,10 @@ BASE_URL="${BASE_URL:-http://localhost:8000}"
 export DATABASE_URL="${DATABASE_URL:-postgresql+psycopg://prior:prior@localhost:5432/prior_auth}"
 export JWT_SECRET="${JWT_SECRET:-dev-only-change-me-32bytes-min!!}"
 
+echo "== migrate =="
+uv run alembic upgrade head
+
+echo "== seed =="
 uv run python scripts/seed.py | tee /tmp/prior-auth-seed.out
 eval "$(python3 - <<'PY'
 from pathlib import Path

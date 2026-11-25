@@ -39,7 +39,7 @@ JWT secret must match the API (`JWT_SECRET`, default `dev-only-change-me-32bytes
 
 ```
 [intake validation]
-   ├─ fail → IntakeRejection (durable; NOT in review queue)
+   ├─ fail (domain OR schema/type) → IntakeRejection (durable; NOT in review queue)
    └─ ok  → PriorAuthRequest status=submitted, claimed_by=NULL
                 │
                 ▼ claim (atomic)
@@ -59,6 +59,8 @@ JWT secret must match the API (`JWT_SECRET`, default `dev-only-change-me-32bytes
 - Decide = claim holder only (no admin override)
 - `decided` ⇒ `decided_by_user_id NOT NULL` (DB CHECK `ck_decided_requires_actor`)
 - Reviewer with COI edge to member cannot claim or decide
+- Unlinked member → only `member_not_linked` (no coverage / other member-derived checks)
+- Caps: ≤50 procedures/outcomes, clinical_note ≤10k chars, body ≤256 KiB (app + proxy)
 
 ### Audit matrix
 
@@ -97,6 +99,26 @@ Hard validation error with a “likely typo” message. Fail closed rather than 
 ### Timezone
 
 DOS stored as `date`. “Today” evaluated in `America/New_York` via `app/clock.py`.
+
+### JWT secret — accepted risk, not production-ready
+
+`settings.jwt_secret` keeps a committed default (`dev-only-change-me-32bytes-min!!`) so the
+take-home runs with one command and no secret handling. **This is a deliberate demo trade-off.**
+
+The risk, stated plainly: that default is published here, in `docker-compose.yml`, and in
+`scripts/demo.sh`, and `scripts/seed.py` pins `ADMIN_ID` to a fixed UUID. A deployment that
+forgets to set `JWT_SECRET` therefore lets anyone who has read this repo mint a valid
+`ops_admin` token and read every request, chart note, and audit event in the system. The
+failure is silent — the app boots normally.
+
+Before any real deployment: drop the default so `Settings` raises on a missing `JWT_SECRET`,
+require ≥32 bytes from a secret manager, and rotate anything that ever ran with the demo value.
+
+### Token lifetime
+
+`mint_token` sets `exp` (24h default), and `get_current_user` decodes with
+`options={"require": ["exp"]}`. A token without an expiry claim is rejected rather than
+accepted forever, so every issued credential — including seed and demo tokens — ages out.
 
 ### Cut list (not built)
 
@@ -137,12 +159,20 @@ GitHub Actions (`.github/workflows/ci.yml`):
 
 Scoped via `setup.cfg`: `source_paths=app/`, `only_mutate=app/prior_auth/services/*`.
 
-**Gate:** `🎉` killed count with **0 survivors** (`🙁 0`) on a clean run. Latest local: **535/535 killed**.
+**Do not run bare `uv run mutmut run`.** Two footguns:
+
+1. **Parallel children** race on shared Postgres (`DROP SCHEMA`) → `UndefinedTable` / failed stats. Always `--max-children 1`.
+2. **Stale `mutants/` cache** → `0 files mutated` and a spinner at `0.00 mutations/second` replaying old 🎉/🙁 counts. Wipe the cache (or use the wrapper).
 
 ```bash
-uv run mutmut run
-uv run mutmut results
+./scripts/run_mutmut.sh
+# resumes only: MUTMUT_KEEP_CACHE=1 ./scripts/run_mutmut.sh
+# or: rm -rf mutants && uv run mutmut run --max-children 1
 ```
+
+`setup.cfg` sets `on_dependency_change=rerun` so non-Python dep changes also invalidate results.
+
+**Gate:** 0 not-checked; survivors ≤ `MUTMUT_MAX_SURVIVORS` (default 0 in CI and locally).
 
 ## Postman
 

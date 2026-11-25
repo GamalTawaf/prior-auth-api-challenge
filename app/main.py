@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 
 from app.audit.router import router as audit_router
 from app.intake.router import router as intake_router
@@ -13,8 +14,10 @@ from app.shared.errors import (
     conflict_handler,
     forbidden_handler,
     not_found_handler,
+    request_validation_handler,
     validation_failure_handler,
 )
+from app.shared.middleware import LimitRequestBodyMiddleware
 from app.telemetry import setup_telemetry
 
 
@@ -34,7 +37,9 @@ app = FastAPI(
     ),
 )
 
+app.add_middleware(LimitRequestBodyMiddleware)
 app.add_exception_handler(ValidationFailure, validation_failure_handler)
+app.add_exception_handler(RequestValidationError, request_validation_handler)
 app.add_exception_handler(ConflictError, conflict_handler)
 app.add_exception_handler(NotFoundError, not_found_handler)
 app.add_exception_handler(ForbiddenError, forbidden_handler)

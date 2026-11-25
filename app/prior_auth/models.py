@@ -56,7 +56,7 @@ class PriorAuthRequest(Base):
     date_of_service: Mapped[date] = mapped_column(Date, nullable=False)
     clinical_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[RequestStatus] = mapped_column(
-        Enum(RequestStatus, name="request_status"), nullable=False, default=RequestStatus.submitted
+        Enum(RequestStatus, name="request_status"), nullable=False
     )
     claimed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True

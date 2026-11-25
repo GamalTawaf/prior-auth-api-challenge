@@ -1,21 +1,19 @@
 from __future__ import annotations
 
 import re
-import uuid
 from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.audit.writer import write_audit
 from app.clock import get_today
 from app.identity.schemas import UserContext
-from app.intake.models import IntakeRejection
+from app.intake.persist import persist_intake_rejection
 from app.master_data.models import Coverage, PatientPracticeLink
 from app.prior_auth.models import PriorAuthProcedure, PriorAuthRequest, RequestStatus
 from app.prior_auth.schemas import SubmitPriorAuthIn
-from app.shared.errors import FieldError, ValidationFailure
-from app.telemetry import record_intake_rejection
+from app.prior_auth.services.common import audit_commit_refresh
+from app.shared.errors import FieldError, raise_field, raise_validation
 
 ICD10_RE = re.compile(r"^[A-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?$", re.IGNORECASE)
 CPT_RE = re.compile(r"^[A-Z0-9]{5}$", re.IGNORECASE)
@@ -23,16 +21,10 @@ CPT_RE = re.compile(r"^[A-Z0-9]{5}$", re.IGNORECASE)
 
 def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) -> PriorAuthRequest:
     if ctx.practice_id is None:
-        correlation_id = uuid.uuid4().hex
-        raise ValidationFailure(
-            correlation_id=correlation_id,
-            errors=[
-                FieldError(
-                    error_code="missing_practice",
-                    field="actor",
-                    message="Office user must belong to a practice",
-                )
-            ],
+        raise_field(
+            "missing_practice",
+            "actor",
+            "Office user must belong to a practice",
         )
 
     errors: list[FieldError] = []
@@ -52,6 +44,15 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
                 message="Member is not linked to this practice",
             )
         )
+        # Do not run member-derived checks (coverage) — avoids cross-tenant probing.
+        correlation_id = persist_intake_rejection(
+            db,
+            actor_user_id=ctx.user_id,
+            practice_id=ctx.practice_id,
+            payload=payload,
+            errors=errors,
+        )
+        raise_validation(errors, correlation_id=correlation_id)
 
     if body.date_of_service < today:
         errors.append(
@@ -136,32 +137,14 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
             )
 
     if errors:
-        correlation_id = uuid.uuid4().hex
-        field_errors = [e.model_dump() for e in errors]
-        rejection = IntakeRejection(
-            correlation_id=correlation_id,
-            actor_user_id=ctx.user_id,
-            practice_id=ctx.practice_id,
-            payload_snapshot=payload,
-            field_errors=field_errors,
-        )
-        db.add(rejection)
-        db.flush()
-        practice_id_str = str(ctx.practice_id)
-        write_audit(
+        correlation_id = persist_intake_rejection(
             db,
             actor_user_id=ctx.user_id,
-            action="intake_reject",
-            payload={
-                "correlation_id": correlation_id,
-                "fields": [e.field for e in errors],
-                "practice_id": practice_id_str,
-            },
-            intake_rejection_id=rejection.id,
+            practice_id=ctx.practice_id,
+            payload=payload,
+            errors=errors,
         )
-        db.commit()
-        record_intake_rejection()
-        raise ValidationFailure(correlation_id=correlation_id, errors=errors)
+        raise_validation(errors, correlation_id=correlation_id)
 
     diagnosis_norm = diagnosis.upper()
     request = PriorAuthRequest(
@@ -178,19 +161,14 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
         request.procedures.append(PriorAuthProcedure(code=code_norm, units=proc.units, sequence=i))
     db.add(request)
     db.flush()
-    request_id_str = str(request.id)
-    member_id_str = str(body.member_id)
-    write_audit(
+    return audit_commit_refresh(
         db,
+        request,
         actor_user_id=ctx.user_id,
         action="submit",
         payload={
-            "request_id": request_id_str,
-            "member_id": member_id_str,
+            "request_id": str(request.id),
+            "member_id": str(body.member_id),
             "procedure_codes": [p.code for p in request.procedures],
         },
-        request_id=request.id,
     )
-    db.commit()
-    db.refresh(request)
-    return request

@@ -1,35 +1,33 @@
 from fastapi.testclient import TestClient
 
-from tests.conftest import auth, valid_submit_body
+from tests.conftest import (
+    claim_as,
+    decide_as,
+    get_audit_as,
+    role_headers,
+    submit_and_claim,
+    submit_ok,
+)
 
 
 def test_member_get_strips_note_and_denial_reason(client: TestClient):
-    created = client.post(
-        "/v1/prior-auths",
-        headers=auth(client.seed["tokens"]["office"]),
-        json=valid_submit_body(client.seed, clinical_note="SECRET NOTE"),
-    )
-    rid = created.json()["id"]
-    client.post(f"/v1/prior-auths/{rid}/claim", headers=auth(client.seed["tokens"]["reviewer"]))
-    detail = client.get(f"/v1/prior-auths/{rid}", headers=auth(client.seed["tokens"]["reviewer"]))
-    proc_id = detail.json()["procedures"][0]["id"]
-    client.post(
-        f"/v1/prior-auths/{rid}/decision",
-        headers=auth(client.seed["tokens"]["reviewer"]),
-        json={
-            "outcomes": [
-                {
-                    "procedure_id": proc_id,
-                    "decision": "denied",
-                    "denial_reason": "Not covered experimentally",
-                }
-            ]
-        },
+    data = submit_and_claim(client, clinical_note="SECRET NOTE")
+    rid = data["id"]
+    decide_as(
+        client,
+        rid,
+        [
+            {
+                "procedure_id": data["procedures"][0]["id"],
+                "decision": "denied",
+                "denial_reason": "Not covered experimentally",
+            }
+        ],
     )
 
     member = client.get(
         f"/v1/me/prior-auths/{rid}",
-        headers=auth(client.seed["tokens"]["member"]),
+        headers=role_headers(client, "member"),
     )
     assert member.status_code == 200, member.text
     body = member.json()
@@ -37,24 +35,24 @@ def test_member_get_strips_note_and_denial_reason(client: TestClient):
     assert "denial_reason" not in str(body)
     assert body["procedures"][0]["status"] == "not_approved"
 
-    listed = client.get("/v1/me/prior-auths", headers=auth(client.seed["tokens"]["member"]))
+    listed = client.get("/v1/me/prior-auths", headers=role_headers(client, "member"))
     assert listed.status_code == 200
     assert any(r["id"] == rid for r in listed.json())
 
 
 def test_admin_audit_trail(client: TestClient):
-    created = client.post(
-        "/v1/prior-auths",
-        headers=auth(client.seed["tokens"]["office"]),
-        json=valid_submit_body(client.seed),
-    )
-    rid = created.json()["id"]
-    client.post(f"/v1/prior-auths/{rid}/claim", headers=auth(client.seed["tokens"]["reviewer"]))
-    audit = client.get(
-        f"/v1/prior-auths/{rid}/audit",
-        headers=auth(client.seed["tokens"]["admin"]),
-    )
+    rid = submit_ok(client)["id"]
+    claim_as(client, rid)
+    audit = get_audit_as(client, rid)
     assert audit.status_code == 200
-    actions = {e["action"] for e in audit.json()}
+    events = audit.json()
+    actions = {e["action"] for e in events}
     assert "submit" in actions
     assert "claim" in actions
+    claim_event = next(e for e in events if e["action"] == "claim")
+    assert claim_event["payload"]["request_id"] == rid
+    assert claim_event["payload"]["reviewer_id"] == str(client.seed["reviewer"].id)
+    submit_event = next(e for e in events if e["action"] == "submit")
+    assert submit_event["payload"]["request_id"] == rid
+    assert "member_id" in submit_event["payload"]
+    assert "procedure_codes" in submit_event["payload"]

@@ -1,36 +1,24 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from app.audit.writer import write_audit
+from app.clock import utc_now
 from app.identity.schemas import UserContext
-from app.master_data.models import ReviewerMemberConflict
 from app.prior_auth.models import PriorAuthRequest, RequestStatus
-from app.shared.errors import ConflictError, ForbiddenError, NotFoundError
+from app.prior_auth.services.common import audit_commit_refresh, get_request, has_coi
+from app.shared.errors import ConflictError, ForbiddenError
 from app.telemetry import record_claim_conflict
 
 
-def _has_coi(db: Session, reviewer_id: uuid.UUID, member_id: uuid.UUID) -> bool:
-    stmt = select(ReviewerMemberConflict).where(
-        ReviewerMemberConflict.reviewer_user_id == reviewer_id,
-        ReviewerMemberConflict.member_id == member_id,
-    )
-    row = db.scalar(stmt)
-    return row is not None
-
-
 def claim_request(db: Session, reviewer: UserContext, request_id: uuid.UUID) -> PriorAuthRequest:
-    existing = db.get(PriorAuthRequest, request_id)
-    if existing is None:
-        raise NotFoundError("Prior auth request not found")
-    if _has_coi(db, reviewer.user_id, existing.member_id):
+    existing = get_request(db, request_id)
+    if has_coi(db, reviewer.user_id, existing.member_id):
         raise ForbiddenError("Conflict of interest with this member")
 
-    now = datetime.now(UTC)
+    now = utc_now()
     unclaimed = PriorAuthRequest.claimed_by_user_id.is_(None)
     stmt = (
         update(PriorAuthRequest)
@@ -46,23 +34,16 @@ def claim_request(db: Session, reviewer: UserContext, request_id: uuid.UUID) -> 
         )
         .returning(PriorAuthRequest.id)
     )
-    result = db.execute(stmt)
-    row = result.first()
-    if row is None:
+    claimed_id = db.execute(stmt).scalar_one_or_none()
+    if claimed_id is None:
         record_claim_conflict()
         raise ConflictError("Request already claimed or not in submitted state")
 
-    request = db.get(PriorAuthRequest, request_id)
-    assert request is not None
-    request_id_str = str(request_id)
-    reviewer_id_str = str(reviewer.user_id)
-    write_audit(
+    request = get_request(db, request_id, load_procedures=True)
+    return audit_commit_refresh(
         db,
+        request,
         actor_user_id=reviewer.user_id,
         action="claim",
-        payload={"request_id": request_id_str, "reviewer_id": reviewer_id_str},
-        request_id=request_id,
+        payload={"request_id": str(request_id), "reviewer_id": str(reviewer.user_id)},
     )
-    db.commit()
-    db.refresh(request)
-    return request

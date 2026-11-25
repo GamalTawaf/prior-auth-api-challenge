@@ -22,7 +22,7 @@ If baseline verification is failing, repair that first before adding new scope.
 - **One feature at a time**: Pick exactly one unfinished feature from `harness/feature_list.json` whose dependencies are `done`
 - **Ponytail full**: YAGNI, fewest files, no speculative abstractions; never cut audit/RBAC/validation or plan-required tooling (uv, OTel, multi-stage Docker, mutmut, CI)
 - **Versions**: Python 3.15 + Postgres 19 + latest stable PyPI deps (no alphas/RCs; OTel instrumentations may be upstream `0.xbY`); see plan Version policy
-- **uv prod vs dev**: `[project].dependencies` = runtime; `[dependency-groups] dev` = pytest/httpx/mutmut/ruff. `uv add` vs `uv add --dev`. Local/CI `uv sync`; Docker `uv sync --frozen --no-dev`
+- **uv prod vs dev**: `[project].dependencies` = runtime; `[dependency-groups] dev` = pytest/httpx2/mutmut/ruff. `uv add` vs `uv add --dev`. Local/CI `uv sync`; Docker `uv sync --frozen --no-dev`
 - **Karpathy**: think before coding; simplicity first; surgical diffs; every step has a verify check
 - **No noise comments**: code must be clear from names/types; comment only when *why* is invisible
 - **Verification required**: do not claim done without running the feature's verification (and `./init.sh` when the project has `pyproject.toml`)
@@ -30,6 +30,29 @@ If baseline verification is failing, repair that first before adding new scope.
 - **Tests = user flow**: send real HTTP API calls; mock **only** DB responses and/or external calls; never mock routers/services/schemas/RBAC. Claim race + DB CHECKs use real Postgres (persistence is under test).
 - **Stay in scope**: do not implement wishlist (outbox, Idempotency-Key, notify, workload) unless a feature explicitly says so
 - **Leave clean state**: next session must be able to run `./init.sh` immediately
+
+## Coding & quality gates (always)
+
+Also mirrored in `.cursor/rules/coding-gates.mdc`.
+
+### No duplication
+
+- **Tests:** do not copy-paste HTTP/setup. Reuse or extend `tests/conftest.py` helpers (`submit_ok`, `submit_and_claim`, `claim_as`, `decide_as`, `reassign_as`, `assert_has_error_code`, `role_headers`, race helpers, …). Prefer `@pytest.mark.parametrize` for same shape / different inputs. **Add a helper when a sequence appears twice.**
+- **App:** when the same logic appears in 2+ places, extract a util (e.g. `app/prior_auth/services/common.py`: `has_coi`, `get_request`, `audit_commit_refresh`; `raise_validation` / `raise_field` in `app/shared/errors.py`). No speculative layers for one call site.
+
+### Call style (`scripts/check_call_style.py`)
+
+- No `IfExp` / `and`/`or` BoolOp / `Lambda` inside function-call **arguments** (`app/` + `tests/`).
+- No nested non-constructor Calls inside call arguments (`app/` only; `**/models.py` and `**/schemas.py` exempt). CapWords constructors OK.
+- Extract locals before the call; do not “fix” by nesting.
+
+### Lint, compile, coverage, summaries
+
+- **ruff** `format --check` + `check` on `app` `tests` `scripts`.
+- **FastAPI compile** (`scripts/check_fastapi_compile.py`) — import `app.main:app` + OpenAPI sanity — required in commit gates and CI.
+- **pytest** with **100%** line + branch coverage (`fail_under = 100`).
+- Claim done only after `./scripts/gates.sh` (or equivalent) is green.
+- **Every** gates/CI step must print a visible summary (`### title` + body; write to `$GITHUB_STEP_SUMMARY` in Actions). New steps must follow `scripts/gates.sh` `run_step` / CI `| tee` + summary pattern — no silent steps.
 
 ## Layout
 
@@ -91,9 +114,26 @@ When `pyproject.toml` exists, init installs the git pre-commit hook and runs:
 
 Pre-commit (after `./scripts/install_git_hooks.sh`): same gates with `GATES_SKIP_TESTS=1` (pytest still runs in CI/`./init.sh`).
 
-Mutmut is a CI / feat-006 gate, not every local init (too slow).
+Mutmut is a CI / feat-006 gate, not every local init (too slow). Always `./scripts/run_mutmut.sh` (forces `--max-children 1` — parallel workers race on shared Postgres schema drops).
 
 Postman (feat-006): `uv run python scripts/generate_postman_collection.py` regenerates `postman/*.json` from OpenAPI — do not hand-edit the collection.
+
+## Pull requests — risk lanes (required)
+
+Every PR must carry **exactly one** GitHub label: `low`, `medium`, or `high`. Mirrored in `.cursor/rules/pr-lanes.mdc` and `.github/PULL_REQUEST_TEMPLATE.md`.
+
+| Lane | Label | Examples |
+|------|-------|----------|
+| **Low** | `low` | Docs/harness/`*.md`, comments, format-only, tooling config with no runtime behavior change |
+| **Medium** | `medium` | Additive, backward-compatible API/schema (new response field, optional request field, new non-breaking route) |
+| **High** | `high` | Logic/behavior of main components: validation, claim/decide/COI/RBAC, auth, semantic migrations, removed/renamed fields, status/`error_code` changes |
+
+**Rules for agents opening a PR:**
+
+1. Classify from the **full** diff; mixed changes → use the **highest** lane.
+2. Run `./scripts/ensure_pr_labels.sh` once if labels may be missing.
+3. Create/update the PR with `--label low|medium|high` and state `Lane: …` in the Summary.
+4. Unsure whether behavior changed → treat as **high**.
 
 ## Escalation
 

@@ -42,6 +42,7 @@ def get_current_user(
             creds.credentials,
             settings.jwt_secret,
             algorithms=[settings.jwt_algorithm],
+            options={"require": ["exp"]},
         )
     except jwt.PyJWTError as exc:
         raise HTTPException(
