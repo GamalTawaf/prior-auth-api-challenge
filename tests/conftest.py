@@ -10,27 +10,25 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 
-os.environ.setdefault(
-    "DATABASE_URL", "postgresql+psycopg://prior:prior@localhost:5432/prior_auth"
-)
+os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://prior:prior@localhost:5432/prior_auth")
 os.environ.setdefault("JWT_SECRET", "test-secret-32-bytes-minimum!!!!")
 
-from app.audit import models as _audit_models  # noqa: E402,F401
-from app.clock import get_today  # noqa: E402
-from app.config import settings  # noqa: E402
-from app.db import Base, get_db  # noqa: E402
-from app.identity.auth import mint_token  # noqa: E402
-from app.identity.models import User, UserRole  # noqa: E402
-from app.intake import models as _intake_models  # noqa: E402,F401
-from app.main import app  # noqa: E402
-from app.master_data.models import (  # noqa: E402
+from app.audit import models as _audit_models  # noqa: F401
+from app.clock import get_today
+from app.config import settings
+from app.db import Base, get_db
+from app.identity.auth import mint_token
+from app.identity.models import User, UserRole
+from app.intake import models as _intake_models  # noqa: F401
+from app.main import app
+from app.master_data.models import (
     Coverage,
     Member,
     PatientPracticeLink,
     Practice,
     ReviewerMemberConflict,
 )
-from app.prior_auth import models as _pa_models  # noqa: E402,F401
+from app.prior_auth import models as _pa_models  # noqa: F401
 
 
 @pytest.fixture(scope="session")
@@ -55,7 +53,7 @@ def db(engine) -> Generator[Session]:
     session.begin_nested()
 
     @event.listens_for(session, "after_transaction_end")
-    def restart_savepoint(sess, trans):  # noqa: ANN001
+    def restart_savepoint(sess, trans):
         if trans.nested and not trans._parent.nested:
             sess.begin_nested()
 

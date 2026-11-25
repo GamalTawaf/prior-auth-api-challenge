@@ -18,9 +18,7 @@ router = APIRouter(tags=["audit"])
 def get_audit(request_id: uuid.UUID, db: DbSession, ctx: AdminUser) -> list[AuditEventOut]:
     if db.get(PriorAuthRequest, request_id) is None:
         raise NotFoundError("Prior auth request not found")
-    rows = db.scalars(
-        select(AuditEvent)
-        .where(AuditEvent.request_id == request_id)
-        .order_by(AuditEvent.at.asc())
-    ).all()
+    oldest_first = AuditEvent.at.asc()
+    stmt = select(AuditEvent).where(AuditEvent.request_id == request_id).order_by(oldest_first)
+    rows = db.scalars(stmt).all()
     return [AuditEventOut.model_validate(r) for r in rows]

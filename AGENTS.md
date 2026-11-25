@@ -80,14 +80,16 @@ A feature is done only when ALL of the following are true:
 
 ```bash
 ./init.sh
+./scripts/gates.sh
 ```
 
-When `pyproject.toml` exists, init runs:
+When `pyproject.toml` exists, init installs the git pre-commit hook and runs:
 
 - `uv sync` (prod + `dependency-groups.dev`)
-- `uv run ruff check app tests`
-- `uv run pytest -q` (exit 5 = no tests yet is OK until tests exist)
+- `./scripts/gates.sh` — ruff format/check, call-style, fastapi OpenAPI compile, pytest+coverage
 - `docker build -t prior-auth-api:local .` (no push)
+
+Pre-commit (after `./scripts/install_git_hooks.sh`): same gates with `GATES_SKIP_TESTS=1` (pytest still runs in CI/`./init.sh`).
 
 Mutmut is a CI / feat-006 gate, not every local init (too slow).
 

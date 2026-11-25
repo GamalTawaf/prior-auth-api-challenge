@@ -1,12 +1,12 @@
 from datetime import timedelta
 
+from app.audit.models import AuditEvent
+from app.clock import get_today
+from app.prior_auth.models import PriorAuthRequest, RequestStatus
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.audit.models import AuditEvent
-from app.clock import get_today
-from app.prior_auth.models import PriorAuthRequest, RequestStatus
 from tests.conftest import auth, valid_submit_body
 
 
@@ -75,9 +75,7 @@ def test_no_coverage(client: TestClient, db: Session):
     # expire coverage
     from app.master_data.models import Coverage
 
-    cov = db.scalars(
-        select(Coverage).where(Coverage.member_id == client.seed["member"].id)
-    ).one()
+    cov = db.scalars(select(Coverage).where(Coverage.member_id == client.seed["member"].id)).one()
     cov.effective_to = get_today() - timedelta(days=1)
     db.flush()
     body = valid_submit_body(client.seed)

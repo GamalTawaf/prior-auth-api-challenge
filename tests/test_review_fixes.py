@@ -6,9 +6,6 @@ import threading
 import uuid
 from datetime import timedelta
 
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import sessionmaker
-
 from app.clock import get_today
 from app.identity.models import User, UserRole
 from app.identity.schemas import UserContext
@@ -17,6 +14,9 @@ from app.prior_auth.models import PriorAuthProcedure, PriorAuthRequest, RequestS
 from app.prior_auth.schemas import DecideIn, ProcedureDecisionIn
 from app.prior_auth.services.decide import decide_request
 from app.shared.errors import ConflictError
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import sessionmaker
+
 from tests.conftest import auth, valid_submit_body
 
 
@@ -81,7 +81,6 @@ def test_pydantic_units_zero_persists_intake_rejection(client: TestClient):
 
 def test_auth_uses_db_role_not_token_role(client: TestClient, db):
     import jwt
-
     from app.config import settings
 
     # Craft token claiming ops_admin for an office user

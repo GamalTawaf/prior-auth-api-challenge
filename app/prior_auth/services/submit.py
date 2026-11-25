@@ -23,8 +23,9 @@ CPT_RE = re.compile(r"^[A-Z0-9]{5}$", re.IGNORECASE)
 
 def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) -> PriorAuthRequest:
     if ctx.practice_id is None:
+        correlation_id = uuid.uuid4().hex
         raise ValidationFailure(
-            correlation_id=str(uuid.uuid4()),
+            correlation_id=correlation_id,
             errors=[
                 FieldError(
                     error_code="missing_practice",
@@ -38,12 +39,11 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
     today = get_today()
     payload = body.model_dump(mode="json")
 
-    linked = db.scalar(
-        select(PatientPracticeLink).where(
-            PatientPracticeLink.member_id == body.member_id,
-            PatientPracticeLink.practice_id == ctx.practice_id,
-        )
+    link_stmt = select(PatientPracticeLink).where(
+        PatientPracticeLink.member_id == body.member_id,
+        PatientPracticeLink.practice_id == ctx.practice_id,
     )
+    linked = db.scalar(link_stmt)
     if linked is None:
         errors.append(
             FieldError(
@@ -61,7 +61,8 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
                 message="Date of service must be today or later",
             )
         )
-    if body.date_of_service > today + timedelta(days=365):
+    max_dos = today + timedelta(days=365)
+    if body.date_of_service > max_dos:
         errors.append(
             FieldError(
                 error_code="dos_too_far",
@@ -70,13 +71,14 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
             )
         )
 
-    coverage = db.scalars(
-        select(Coverage).where(
-            Coverage.member_id == body.member_id,
-            Coverage.effective_from <= body.date_of_service,
-            (Coverage.effective_to.is_(None)) | (Coverage.effective_to >= body.date_of_service),
-        )
-    ).first()
+    open_ended = Coverage.effective_to.is_(None)
+    covers_dos = Coverage.effective_to >= body.date_of_service
+    coverage_stmt = select(Coverage).where(
+        Coverage.member_id == body.member_id,
+        Coverage.effective_from <= body.date_of_service,
+        open_ended | covers_dos,
+    )
+    coverage = db.scalars(coverage_stmt).first()
     if coverage is None:
         errors.append(
             FieldError(
@@ -86,7 +88,8 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
             )
         )
 
-    if not ICD10_RE.match(body.diagnosis_icd10.strip()):
+    diagnosis = body.diagnosis_icd10.strip()
+    if not ICD10_RE.match(diagnosis):
         errors.append(
             FieldError(
                 error_code="invalid_icd10",
@@ -106,7 +109,8 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
 
     for i, proc in enumerate(body.procedures):
         prefix = f"procedures[{i}]"
-        if not CPT_RE.match(proc.code.strip()):
+        code = proc.code.strip()
+        if not CPT_RE.match(code):
             errors.append(
                 FieldError(
                     error_code="invalid_procedure_code",
@@ -132,16 +136,18 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
             )
 
     if errors:
-        correlation_id = str(uuid.uuid4())
+        correlation_id = uuid.uuid4().hex
+        field_errors = [e.model_dump() for e in errors]
         rejection = IntakeRejection(
             correlation_id=correlation_id,
             actor_user_id=ctx.user_id,
             practice_id=ctx.practice_id,
             payload_snapshot=payload,
-            field_errors=[e.model_dump() for e in errors],
+            field_errors=field_errors,
         )
         db.add(rejection)
         db.flush()
+        practice_id_str = str(ctx.practice_id)
         write_audit(
             db,
             actor_user_id=ctx.user_id,
@@ -149,7 +155,7 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
             payload={
                 "correlation_id": correlation_id,
                 "fields": [e.field for e in errors],
-                "practice_id": str(ctx.practice_id),
+                "practice_id": practice_id_str,
             },
             intake_rejection_id=rejection.id,
         )
@@ -157,28 +163,30 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
         record_intake_rejection()
         raise ValidationFailure(correlation_id=correlation_id, errors=errors)
 
+    diagnosis_norm = diagnosis.upper()
     request = PriorAuthRequest(
         member_id=body.member_id,
         practice_id=ctx.practice_id,
         submitted_by_user_id=ctx.user_id,
-        diagnosis_icd10=body.diagnosis_icd10.strip().upper(),
+        diagnosis_icd10=diagnosis_norm,
         date_of_service=body.date_of_service,
         clinical_note=body.clinical_note,
         status=RequestStatus.submitted,
     )
     for i, proc in enumerate(body.procedures, start=1):
-        request.procedures.append(
-            PriorAuthProcedure(code=proc.code.strip().upper(), units=proc.units, sequence=i)
-        )
+        code_norm = proc.code.strip().upper()
+        request.procedures.append(PriorAuthProcedure(code=code_norm, units=proc.units, sequence=i))
     db.add(request)
     db.flush()
+    request_id_str = str(request.id)
+    member_id_str = str(body.member_id)
     write_audit(
         db,
         actor_user_id=ctx.user_id,
         action="submit",
         payload={
-            "request_id": str(request.id),
-            "member_id": str(body.member_id),
+            "request_id": request_id_str,
+            "member_id": member_id_str,
             "procedure_codes": [p.code for p in request.procedures],
         },
         request_id=request.id,

@@ -4,9 +4,6 @@ import threading
 import uuid
 from datetime import timedelta
 
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import sessionmaker
-
 from app.clock import get_today
 from app.identity.models import User, UserRole
 from app.identity.schemas import UserContext
@@ -14,6 +11,9 @@ from app.master_data.models import Coverage, Member, PatientPracticeLink, Practi
 from app.prior_auth.models import PriorAuthProcedure, PriorAuthRequest, RequestStatus
 from app.prior_auth.services.claim import claim_request
 from app.shared.errors import ConflictError
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import sessionmaker
+
 from tests.conftest import auth, valid_submit_body
 
 

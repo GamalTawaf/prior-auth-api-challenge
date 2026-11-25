@@ -1,8 +1,8 @@
-from fastapi.testclient import TestClient
-
 from app.identity.auth import mint_token, require_role
 from app.identity.models import UserRole
 from app.main import app
+from fastapi.testclient import TestClient
+
 from tests.conftest import auth
 
 

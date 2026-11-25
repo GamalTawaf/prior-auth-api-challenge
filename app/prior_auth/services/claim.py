@@ -15,12 +15,11 @@ from app.telemetry import record_claim_conflict
 
 
 def _has_coi(db: Session, reviewer_id: uuid.UUID, member_id: uuid.UUID) -> bool:
-    row = db.scalar(
-        select(ReviewerMemberConflict).where(
-            ReviewerMemberConflict.reviewer_user_id == reviewer_id,
-            ReviewerMemberConflict.member_id == member_id,
-        )
+    stmt = select(ReviewerMemberConflict).where(
+        ReviewerMemberConflict.reviewer_user_id == reviewer_id,
+        ReviewerMemberConflict.member_id == member_id,
     )
+    row = db.scalar(stmt)
     return row is not None
 
 
@@ -32,12 +31,13 @@ def claim_request(db: Session, reviewer: UserContext, request_id: uuid.UUID) -> 
         raise ForbiddenError("Conflict of interest with this member")
 
     now = datetime.now(UTC)
-    result = db.execute(
+    unclaimed = PriorAuthRequest.claimed_by_user_id.is_(None)
+    stmt = (
         update(PriorAuthRequest)
         .where(
             PriorAuthRequest.id == request_id,
             PriorAuthRequest.status == RequestStatus.submitted,
-            PriorAuthRequest.claimed_by_user_id.is_(None),
+            unclaimed,
         )
         .values(
             status=RequestStatus.in_review,
@@ -46,6 +46,7 @@ def claim_request(db: Session, reviewer: UserContext, request_id: uuid.UUID) -> 
         )
         .returning(PriorAuthRequest.id)
     )
+    result = db.execute(stmt)
     row = result.first()
     if row is None:
         record_claim_conflict()
@@ -53,11 +54,13 @@ def claim_request(db: Session, reviewer: UserContext, request_id: uuid.UUID) -> 
 
     request = db.get(PriorAuthRequest, request_id)
     assert request is not None
+    request_id_str = str(request_id)
+    reviewer_id_str = str(reviewer.user_id)
     write_audit(
         db,
         actor_user_id=reviewer.user_id,
         action="claim",
-        payload={"request_id": str(request_id), "reviewer_id": str(reviewer.user_id)},
+        payload={"request_id": request_id_str, "reviewer_id": reviewer_id_str},
         request_id=request_id,
     )
     db.commit()

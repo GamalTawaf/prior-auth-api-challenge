@@ -1,13 +1,13 @@
 import uuid
 
 import pytest
+from app.clock import get_today
+from app.prior_auth.models import PriorAuthRequest, RequestStatus
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.clock import get_today
-from app.prior_auth.models import PriorAuthRequest, RequestStatus
 from tests.conftest import auth, valid_submit_body
 
 
@@ -46,9 +46,7 @@ def test_http_decide_always_sets_decided_by(client: TestClient, db: Session):
     )
     assert decided.status_code == 200
     row = db.execute(
-        text(
-            "SELECT decided_by_user_id IS NOT NULL FROM prior_auth_requests WHERE id = :id"
-        ),
+        text("SELECT decided_by_user_id IS NOT NULL FROM prior_auth_requests WHERE id = :id"),
         {"id": rid},
     ).scalar()
     assert row is True

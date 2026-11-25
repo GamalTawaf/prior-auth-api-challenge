@@ -6,8 +6,6 @@ from __future__ import annotations
 import uuid
 from datetime import timedelta
 
-from sqlalchemy import select
-
 from app.clock import get_today
 from app.db import SessionLocal, engine
 from app.identity.auth import mint_token
@@ -19,6 +17,7 @@ from app.master_data.models import (
     Practice,
     ReviewerMemberConflict,
 )
+from sqlalchemy import select
 
 # Stable UUIDs for demos / Postman env
 PRACTICE_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
@@ -93,9 +92,7 @@ def seed() -> dict[str, str]:
             )
             db.add_all([office, reviewer, reviewer_coi, admin, member_user])
             db.flush()
-            db.add(
-                ReviewerMemberConflict(reviewer_user_id=REVIEWER_COI_ID, member_id=MEMBER_ID)
-            )
+            db.add(ReviewerMemberConflict(reviewer_user_id=REVIEWER_COI_ID, member_id=MEMBER_ID))
             db.commit()
             users = {
                 "office": office,

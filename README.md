@@ -112,6 +112,19 @@ Ponytail full + Karpathy guidelines + no restating comments. Domain packages win
 - PostgreSQL **19** (`postgres:19`)
 - **uv** only; prod deps in `[project].dependencies`, test/lint in `[dependency-groups] dev`
 
+## Gates (commit + CI)
+
+```bash
+./scripts/gates.sh                 # ruff format/check, call-style, fastapi compile, pytest
+./scripts/install_git_hooks.sh     # pre-commit runs gates with GATES_SKIP_TESTS=1
+```
+
+- **ruff** — `ruff format --check` + `ruff check` (E/W/F/I/UP/B/SIM/C4/RUF)
+- **call-style** — no nested non-constructor calls and no `if`/`and`/`or`/lambda expressions inside function call arguments (`scripts/check_call_style.py`; nested-call rule applies to `app/` except models/schemas)
+- **fastapi compile** — `compileall` + `app.openapi()` + route callable inventory (`scripts/check_fastapi_compile.py`)
+
+Every CI step writes a pass/fail block to the GitHub Actions job summary.
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`):

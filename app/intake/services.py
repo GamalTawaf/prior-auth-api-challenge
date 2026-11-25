@@ -9,12 +9,9 @@ from app.intake.models import IntakeRejection
 from app.shared.errors import NotFoundError
 
 
-def get_intake_rejection(
-    db: Session, ctx: UserContext, correlation_id: str
-) -> IntakeRejection:
-    row = db.scalar(
-        select(IntakeRejection).where(IntakeRejection.correlation_id == correlation_id)
-    )
+def get_intake_rejection(db: Session, ctx: UserContext, correlation_id: str) -> IntakeRejection:
+    stmt = select(IntakeRejection).where(IntakeRejection.correlation_id == correlation_id)
+    row = db.scalar(stmt)
     if row is None:
         raise NotFoundError("Intake rejection not found")
     if ctx.role == UserRole.ops_admin:

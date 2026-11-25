@@ -16,4 +16,5 @@ router = APIRouter(tags=["support"])
 def lookup_intake_rejection(
     correlation_id: str, db: DbSession, ctx: OfficeOrAdmin
 ) -> IntakeRejectionOut:
-    return IntakeRejectionOut.model_validate(get_intake_rejection(db, ctx, correlation_id))
+    rejection = get_intake_rejection(db, ctx, correlation_id)
+    return IntakeRejectionOut.model_validate(rejection)

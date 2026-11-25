@@ -23,12 +23,14 @@ from app.shared.errors import (
 def decide_request(
     db: Session, reviewer: UserContext, request_id: uuid.UUID, body: DecideIn
 ) -> PriorAuthRequest:
-    request = db.scalar(
+    procedures_load = selectinload(PriorAuthRequest.procedures)
+    stmt = (
         select(PriorAuthRequest)
         .where(PriorAuthRequest.id == request_id)
-        .options(selectinload(PriorAuthRequest.procedures))
+        .options(procedures_load)
         .with_for_update()
     )
+    request = db.scalar(stmt)
     if request is None:
         raise NotFoundError("Prior auth request not found")
     if request.status == RequestStatus.decided:
@@ -36,12 +38,11 @@ def decide_request(
     if request.status != RequestStatus.in_review or request.claimed_by_user_id != reviewer.user_id:
         raise ForbiddenError("Only the claim holder may decide")
 
-    coi = db.scalar(
-        select(ReviewerMemberConflict).where(
-            ReviewerMemberConflict.reviewer_user_id == reviewer.user_id,
-            ReviewerMemberConflict.member_id == request.member_id,
-        )
+    coi_stmt = select(ReviewerMemberConflict).where(
+        ReviewerMemberConflict.reviewer_user_id == reviewer.user_id,
+        ReviewerMemberConflict.member_id == request.member_id,
     )
+    coi = db.scalar(coi_stmt)
     if coi is not None:
         raise ForbiddenError("Conflict of interest with this member")
 
@@ -66,7 +67,8 @@ def decide_request(
                     message="Decision must be approved or denied",
                 )
             )
-        if outcome.decision == "denied" and not (outcome.denial_reason or "").strip():
+        denial_blank = not (outcome.denial_reason or "").strip()
+        if outcome.decision == "denied" and denial_blank:
             errors.append(
                 FieldError(
                     error_code="denial_reason_required",
@@ -76,34 +78,35 @@ def decide_request(
             )
 
     if errors:
-        raise ValidationFailure(correlation_id=str(uuid.uuid4()), errors=errors)
+        correlation_id = uuid.uuid4().hex
+        raise ValidationFailure(correlation_id=correlation_id, errors=errors)
 
     now = datetime.now(UTC)
     for outcome in body.outcomes:
         proc = by_id[outcome.procedure_id]
         proc.decision = ProcedureDecision(outcome.decision)
-        proc.denial_reason = (
-            outcome.denial_reason.strip() if outcome.decision == "denied" else None
-        )
+        if outcome.decision == "denied":
+            proc.denial_reason = outcome.denial_reason.strip() if outcome.denial_reason else None
+        else:
+            proc.denial_reason = None
 
     request.status = RequestStatus.decided
     request.decided_by_user_id = reviewer.user_id
     request.decided_at = now
+    request_id_str = str(request_id)
+    outcomes_payload = [
+        {
+            "procedure_id": str(o.procedure_id),
+            "decision": o.decision,
+            "denial_reason": o.denial_reason,
+        }
+        for o in body.outcomes
+    ]
     write_audit(
         db,
         actor_user_id=reviewer.user_id,
         action="decide",
-        payload={
-            "request_id": str(request_id),
-            "outcomes": [
-                {
-                    "procedure_id": str(o.procedure_id),
-                    "decision": o.decision,
-                    "denial_reason": o.denial_reason,
-                }
-                for o in body.outcomes
-            ],
-        },
+        payload={"request_id": request_id_str, "outcomes": outcomes_payload},
         request_id=request_id,
     )
     db.commit()

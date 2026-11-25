@@ -1,7 +1,124 @@
 name: ci
 on: [push, pull_request]
+
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.15"
+      - name: uv sync
+        run: |
+          uv sync
+          {
+            echo "### uv sync: PASSED"
+            echo ""
+            echo "Installed prod + dependency-groups.dev for Python 3.15"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: ruff format
+        run: |
+          set -o pipefail
+          out="$(mktemp)"
+          if uv run ruff format --check app tests scripts | tee "$out"; then
+            {
+              echo "### ruff format: PASSED"
+              echo ""
+              echo '```'
+              cat "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### ruff format: FAILED"
+              echo ""
+              echo '```'
+              cat "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - name: ruff lint
+        run: |
+          set -o pipefail
+          out="$(mktemp)"
+          if uv run ruff check app tests scripts | tee "$out"; then
+            {
+              echo "### ruff lint: PASSED"
+              echo ""
+              echo '```'
+              cat "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### ruff lint: FAILED"
+              echo ""
+              echo '```'
+              cat "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - name: call style
+        run: |
+          set -o pipefail
+          out="$(mktemp)"
+          if uv run python scripts/check_call_style.py | tee "$out"; then
+            {
+              echo "### call style: PASSED"
+              echo ""
+              echo "No nested non-constructor calls or conditions inside function call arguments (app/)."
+              echo ""
+              echo '```'
+              cat "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### call style: FAILED"
+              echo ""
+              echo '```'
+              cat "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - name: fastapi compile + OpenAPI
+        run: |
+          set -o pipefail
+          out="$(mktemp)"
+          if uv run python scripts/check_fastapi_compile.py | tee "$out"; then
+            {
+              echo "### fastapi compile: PASSED"
+              echo ""
+              echo '```'
+              cat "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### fastapi compile: FAILED"
+              echo ""
+              echo '```'
+              cat "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
   test:
+    needs: lint
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -24,10 +141,58 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.15"
-      - run: uv sync
-      - run: uv run ruff check app tests
-      - run: uv run alembic upgrade head
-      - run: uv run pytest -q --cov=app --cov-report=term-missing
+      - name: uv sync
+        run: |
+          uv sync
+          echo "### uv sync: PASSED" >> "$GITHUB_STEP_SUMMARY"
+      - name: alembic migrate
+        run: |
+          set -o pipefail
+          out="$(mktemp)"
+          if uv run alembic upgrade head | tee "$out"; then
+            {
+              echo "### alembic upgrade head: PASSED"
+              echo ""
+              echo '```'
+              cat "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### alembic upgrade head: FAILED"
+              echo ""
+              echo '```'
+              cat "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - name: pytest + coverage
+        run: |
+          set -o pipefail
+          out="$(mktemp)"
+          if uv run pytest -q --cov=app --cov-report=term-missing | tee "$out"; then
+            {
+              echo "### pytest + coverage: PASSED"
+              echo ""
+              echo '```'
+              tail -n 40 "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### pytest + coverage: FAILED"
+              echo ""
+              echo '```'
+              tail -n 60 "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
   mutate:
     needs: test
@@ -57,11 +222,57 @@ jobs:
       - run: uv run alembic upgrade head
       - name: mutmut prior_auth services
         run: |
-          uv run mutmut run
-          uv run mutmut results
+          set -o pipefail
+          out="$(mktemp)"
+          if uv run mutmut run | tee "$out"; then
+            uv run mutmut results | tee -a "$out" || true
+            {
+              echo "### mutmut: PASSED"
+              echo ""
+              echo '```'
+              tail -n 40 "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### mutmut: FAILED"
+              echo ""
+              echo '```'
+              tail -n 60 "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
   image:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t prior-auth-api:ci .
+      - name: docker build (no push)
+        run: |
+          set -o pipefail
+          out="$(mktemp)"
+          if docker build -t prior-auth-api:ci . | tee "$out"; then
+            {
+              echo "### docker build: PASSED"
+              echo ""
+              echo "Image tag: \`prior-auth-api:ci\` (not pushed)"
+              echo ""
+              echo '```'
+              tail -n 30 "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### docker build: FAILED"
+              echo ""
+              echo '```'
+              tail -n 60 "$out"
+              echo '```'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

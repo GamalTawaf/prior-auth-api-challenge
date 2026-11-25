@@ -33,26 +33,28 @@ from app.shared.errors import ForbiddenError, NotFoundError
 
 router = APIRouter(tags=["prior-auth"])
 
+_PROCEDURES = selectinload(PriorAuthRequest.procedures)
+
 
 def _load(db, request_id: uuid.UUID) -> PriorAuthRequest | None:
-    return db.scalar(
-        select(PriorAuthRequest)
-        .where(PriorAuthRequest.id == request_id)
-        .options(selectinload(PriorAuthRequest.procedures))
-    )
+    stmt = select(PriorAuthRequest).where(PriorAuthRequest.id == request_id).options(_PROCEDURES)
+    return db.scalar(stmt)
 
 
 @router.post("/v1/prior-auths", response_model=PriorAuthOut, status_code=201)
 def create_prior_auth(body: SubmitPriorAuthIn, db: DbSession, ctx: OfficeUser) -> PriorAuthOut:
-    return to_prior_auth_out(submit_prior_auth(db, ctx, body))
+    request = submit_prior_auth(db, ctx, body)
+    return to_prior_auth_out(request)
 
 
 @router.get("/v1/prior-auths", response_model=list[PriorAuthOut])
 def list_prior_auths(db: DbSession, ctx: OfficeOrAdmin) -> list[PriorAuthOut]:
-    q = select(PriorAuthRequest).options(selectinload(PriorAuthRequest.procedures))
+    stmt = select(PriorAuthRequest).options(_PROCEDURES)
     if ctx.role == UserRole.provider_office:
-        q = q.where(PriorAuthRequest.practice_id == ctx.practice_id)
-    rows = db.scalars(q.order_by(PriorAuthRequest.created_at.desc())).all()
+        stmt = stmt.where(PriorAuthRequest.practice_id == ctx.practice_id)
+    newest_first = PriorAuthRequest.created_at.desc()
+    stmt = stmt.order_by(newest_first)
+    rows = db.scalars(stmt).all()
     return [to_prior_auth_out(r) for r in rows]
 
 
@@ -66,9 +68,7 @@ def get_prior_auth(request_id: uuid.UUID, db: DbSession, ctx: CurrentUser) -> Pr
             raise NotFoundError("Prior auth request not found")
     elif ctx.role == UserRole.reviewer:
         own = request.claimed_by_user_id == ctx.user_id
-        queueable = (
-            request.status == RequestStatus.submitted and request.claimed_by_user_id is None
-        )
+        queueable = request.status == RequestStatus.submitted and request.claimed_by_user_id is None
         if not (own or queueable):
             raise ForbiddenError("Not allowed to view this request")
     elif ctx.role == UserRole.ops_admin:
@@ -80,43 +80,48 @@ def get_prior_auth(request_id: uuid.UUID, db: DbSession, ctx: CurrentUser) -> Pr
 
 @router.get("/v1/review-queue", response_model=list[PriorAuthOut])
 def review_queue(db: DbSession, ctx: ReviewerUser) -> list[PriorAuthOut]:
-    rows = db.scalars(
+    unclaimed = PriorAuthRequest.claimed_by_user_id.is_(None)
+    oldest_first = PriorAuthRequest.created_at.asc()
+    stmt = (
         select(PriorAuthRequest)
-        .where(
-            PriorAuthRequest.status == RequestStatus.submitted,
-            PriorAuthRequest.claimed_by_user_id.is_(None),
-        )
-        .options(selectinload(PriorAuthRequest.procedures))
-        .order_by(PriorAuthRequest.created_at.asc())
-    ).all()
+        .where(PriorAuthRequest.status == RequestStatus.submitted, unclaimed)
+        .options(_PROCEDURES)
+        .order_by(oldest_first)
+    )
+    rows = db.scalars(stmt).all()
     return [to_prior_auth_out(r) for r in rows]
 
 
 @router.post("/v1/prior-auths/{request_id}/claim", response_model=PriorAuthOut)
 def claim(request_id: uuid.UUID, db: DbSession, ctx: ReviewerUser) -> PriorAuthOut:
-    return to_prior_auth_out(claim_request(db, ctx, request_id))
+    request = claim_request(db, ctx, request_id)
+    return to_prior_auth_out(request)
 
 
 @router.post("/v1/prior-auths/{request_id}/decision", response_model=PriorAuthOut)
 def decide(request_id: uuid.UUID, body: DecideIn, db: DbSession, ctx: ReviewerUser) -> PriorAuthOut:
-    return to_prior_auth_out(decide_request(db, ctx, request_id, body))
+    request = decide_request(db, ctx, request_id, body)
+    return to_prior_auth_out(request)
 
 
 @router.post("/v1/prior-auths/{request_id}/reassign", response_model=PriorAuthOut)
 def reassign(
     request_id: uuid.UUID, body: ReassignIn, db: DbSession, ctx: AdminUser
 ) -> PriorAuthOut:
-    return to_prior_auth_out(reassign_request(db, ctx, request_id, body.reviewer_id))
+    request = reassign_request(db, ctx, request_id, body.reviewer_id)
+    return to_prior_auth_out(request)
 
 
 @router.get("/v1/me/prior-auths", response_model=list[MemberPriorAuthOut])
 def my_prior_auths(db: DbSession, ctx: MemberUser) -> list[MemberPriorAuthOut]:
-    rows = db.scalars(
+    newest_first = PriorAuthRequest.created_at.desc()
+    stmt = (
         select(PriorAuthRequest)
         .where(PriorAuthRequest.member_id == ctx.member_id)
-        .options(selectinload(PriorAuthRequest.procedures))
-        .order_by(PriorAuthRequest.created_at.desc())
-    ).all()
+        .options(_PROCEDURES)
+        .order_by(newest_first)
+    )
+    rows = db.scalars(stmt).all()
     return [to_member_out(r) for r in rows]
 
 

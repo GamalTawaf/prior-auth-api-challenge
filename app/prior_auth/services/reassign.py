@@ -17,9 +17,8 @@ from app.shared.errors import ConflictError, FieldError, NotFoundError, Validati
 def reassign_request(
     db: Session, admin: UserContext, request_id: uuid.UUID, reviewer_id: uuid.UUID
 ) -> PriorAuthRequest:
-    request = db.scalar(
-        select(PriorAuthRequest).where(PriorAuthRequest.id == request_id).with_for_update()
-    )
+    stmt = select(PriorAuthRequest).where(PriorAuthRequest.id == request_id).with_for_update()
+    request = db.scalar(stmt)
     if request is None:
         raise NotFoundError("Prior auth request not found")
     if request.status == RequestStatus.decided:
@@ -29,8 +28,9 @@ def reassign_request(
 
     reviewer = db.get(User, reviewer_id)
     if reviewer is None or reviewer.role != UserRole.reviewer:
+        correlation_id = uuid.uuid4().hex
         raise ValidationFailure(
-            correlation_id=str(uuid.uuid4()),
+            correlation_id=correlation_id,
             errors=[
                 FieldError(
                     error_code="invalid_reviewer",
@@ -39,15 +39,15 @@ def reassign_request(
                 )
             ],
         )
-    coi = db.scalar(
-        select(ReviewerMemberConflict).where(
-            ReviewerMemberConflict.reviewer_user_id == reviewer_id,
-            ReviewerMemberConflict.member_id == request.member_id,
-        )
+    coi_stmt = select(ReviewerMemberConflict).where(
+        ReviewerMemberConflict.reviewer_user_id == reviewer_id,
+        ReviewerMemberConflict.member_id == request.member_id,
     )
+    coi = db.scalar(coi_stmt)
     if coi is not None:
+        correlation_id = uuid.uuid4().hex
         raise ValidationFailure(
-            correlation_id=str(uuid.uuid4()),
+            correlation_id=correlation_id,
             errors=[
                 FieldError(
                     error_code="reviewer_coi",
@@ -60,15 +60,14 @@ def reassign_request(
     previous = request.claimed_by_user_id
     request.claimed_by_user_id = reviewer_id
     request.claimed_at = datetime.now(UTC)
+    previous_str = str(previous) if previous else None
+    reviewer_id_str = str(reviewer_id)
+    request_id_str = str(request_id)
     write_audit(
         db,
         actor_user_id=admin.user_id,
         action="reassign",
-        payload={
-            "request_id": str(request_id),
-            "from": str(previous) if previous else None,
-            "to": str(reviewer_id),
-        },
+        payload={"request_id": request_id_str, "from": previous_str, "to": reviewer_id_str},
         request_id=request_id,
     )
     db.commit()

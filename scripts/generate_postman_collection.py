@@ -9,6 +9,7 @@ from pathlib import Path
 from app.identity.auth import mint_token
 from app.identity.models import User, UserRole
 from app.main import app
+
 from scripts.seed import (
     ADMIN_ID,
     MEMBER_ID,

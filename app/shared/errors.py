@@ -51,7 +51,8 @@ async def validation_failure_handler(_request: Request, exc: ValidationFailure) 
         errors=exc.errors,
         correlation_id=exc.correlation_id,
     )
-    return JSONResponse(status_code=422, content=body.model_dump())
+    payload = body.model_dump()
+    return JSONResponse(status_code=422, content=payload)
 
 
 async def conflict_handler(_request: Request, exc: ConflictError) -> JSONResponse:

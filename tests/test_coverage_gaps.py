@@ -1,9 +1,7 @@
 from __future__ import annotations
 
+import contextlib
 import uuid
-
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.clock import get_today
 from app.db import get_db
@@ -21,6 +19,9 @@ from app.prior_auth.serializers import to_member_out
 from app.prior_auth.services.claim import claim_request
 from app.prior_auth.services.decide import decide_request
 from app.shared.errors import ForbiddenError, NotFoundError, ValidationFailure
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
 from tests.conftest import auth, valid_submit_body
 
 
@@ -28,17 +29,14 @@ def test_get_db_yields_and_closes():
     gen = get_db()
     session = next(gen)
     assert session is not None
-    try:
+    with contextlib.suppress(StopIteration):
         next(gen)
-    except StopIteration:
-        pass
 
 
 def test_invalid_token_and_unknown_user(client: TestClient, db: Session):
     assert client.get("/v1/prior-auths", headers=auth("not-a-jwt")).status_code == 401
 
     import jwt
-
     from app.config import settings
 
     bad_sub = jwt.encode(
@@ -63,7 +61,6 @@ def test_invalid_token_and_unknown_user(client: TestClient, db: Session):
     assert client.get("/v1/prior-auths", headers=auth(ghost)).status_code == 401
 
 
-
 def test_submit_validation_edges(client: TestClient):
     # invalid ICD
     body = valid_submit_body(client.seed, diagnosis_icd10="!!!")
@@ -82,7 +79,6 @@ def test_submit_validation_edges(client: TestClient):
     assert r.status_code == 422
     assert any(e["error_code"] == "procedures_required" for e in r.json()["errors"])
     assert r.json().get("correlation_id")
-
 
 
 def test_submit_office_without_practice(db: Session, client: TestClient):
@@ -244,7 +240,6 @@ def test_decide_edges(db: Session, seed_data: dict, client: TestClient):
         pass
 
 
-
 def test_reassign_edges(client: TestClient):
     missing = client.post(
         f"/v1/prior-auths/{uuid.uuid4()}/reassign",
@@ -338,8 +333,6 @@ def test_reviewer_can_get_unclaimed_queue_item(client: TestClient):
     assert admin_got.status_code == 200
 
 
-
-
 def test_office_wrong_practice_get(client: TestClient, db: Session):
     from app.master_data.models import Practice
 
@@ -379,17 +372,14 @@ def test_member_forbidden_on_get_prior_auth(client: TestClient):
 
 
 def test_telemetry_otlp_and_counters(monkeypatch):
-    from fastapi import FastAPI
-
     import app.telemetry as tel
+    from fastapi import FastAPI
 
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
     app = FastAPI()
     # may fail if exporter can't connect — wrap
-    try:
+    with contextlib.suppress(Exception):
         tel.setup_telemetry(app)
-    except Exception:
-        pass
     tel.record_claim_conflict()
     tel.record_intake_rejection()
     # reset counters path when None
