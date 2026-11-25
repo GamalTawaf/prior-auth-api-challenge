@@ -28,7 +28,7 @@ If baseline verification is failing, repair that first before adding new scope.
 - **Verification required**: do not claim done without running the feature's verification (and `./init.sh` when the project has `pyproject.toml`)
 - **Evidence required**: record commands + outcome in `harness/feature_list.json` `evidence` and append `harness/progress.md`
 - **Tests = user flow**: send real HTTP API calls; mock **only** DB responses and/or external calls; never mock routers/services/schemas/RBAC. Claim race + DB CHECKs use real Postgres (persistence is under test).
-- **Stay in scope**: do not implement wishlist (outbox, Idempotency-Key, notify, workload) unless a feature explicitly says so
+- **Stay in scope**: implement only the active `harness/feature_list.json` item. Wishlist stretch is **feat-008…012** (plan `docs/plans/2026-11-25-wishlist-outbox-maildev.md`: workload, outbox→MailDev, auditor, Idempotency-Key). Do not invent further wishlist beyond that plan.
 - **Leave clean state**: next session must be able to run `./init.sh` immediately
 
 ## Coding & quality gates (always)

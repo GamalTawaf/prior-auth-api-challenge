@@ -66,7 +66,7 @@ Stop at the first rung that holds: YAGNI → stdlib/platform → installed dep �
 - Docker: **multi-stage** on `python:3.15.2-slim` (or newer 3.15.x-slim); Compose = API + `postgres:19`.
 - CI: GitHub Actions builds image (**no registry push**) and runs tests (pytest + mutmut).
 - Synthetic data only; no real PHI.
-- No outbox / notification wishlist / Idempotency-Key in MVP (defer; document as “not built”).
+- No outbox / notification wishlist / Idempotency-Key in MVP (deferred to wishlist stretch — see `docs/plans/2026-11-25-wishlist-outbox-maildev.md`, feat-008…012).
 - No GraphQL, event bus, microservices split, real IdP, appeals, retro review, CRUD UIs, AWS deploy.
 - Timezone: DOS stored as `date`; “today” evaluated in **`America/New_York`** (`clock.py`).
 - Units > 30 → **hard validation error** (document: “almost always a typo”).
@@ -296,7 +296,7 @@ Base: `/v1` · Auth: `Authorization: Bearer <token>`
 ### Office support (own practice)
 - `GET /v1/support/intake-rejections/{correlation_id}` — practice-scoped
 
-**Explicitly not in MVP:** notify-on-decision, reviewer workload, Idempotency-Key, auditor role (note seam in README only).
+**Explicitly not in MVP** (wishlist stretch plan `2026-11-25-wishlist-outbox-maildev.md`): notify-on-decision (outbox→MailDev), reviewer workload, Idempotency-Key, auditor role.
 
 ---
 
@@ -683,7 +683,7 @@ Feature IDs map to plan tasks: feat-001…007 ↔ Task 1…7.
 ## Immediate next steps
 
 1. **Now:** `./init.sh` then feat-001 — decisions page + local `uv`/Compose skeleton (no remote repo required).
-2. Then feat-002 → … → feat-007 in dependency order; update `harness/progress.md` / handoff each session.
+2. Then feat-002 → … → feat-007 in dependency order; wishlist stretch feat-008…012 per `docs/plans/2026-11-25-wishlist-outbox-maildev.md` (one worktree/agent per feature, stacked); update `harness/progress.md` / handoff each session.
 3. When ready to submit: create private repo from template, push, add collaborator `rgavrilov5`.
 
 ---

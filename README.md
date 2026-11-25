@@ -122,7 +122,21 @@ accepted forever, so every issued credential — including seed and demo tokens 
 
 ### Cut list (not built)
 
-Outbox / notify-on-decision, Idempotency-Key, GraphQL, event bus, microservices, real IdP, appeals, retro review, CRUD UIs, AWS deploy, reviewer workload API, auditor role (seam only).
+GraphQL, event bus, microservices, real IdP, appeals, retro review, CRUD UIs, AWS deploy, real SES/SendGrid (MailDev only).
+
+### Wishlist stretch (feat-008…012)
+
+Plan: [`docs/plans/2026-11-25-wishlist-outbox-maildev.md`](docs/plans/2026-11-25-wishlist-outbox-maildev.md).
+
+| Feature | Behavior | Lane |
+|---------|----------|------|
+| feat-008 | **Implemented** — `GET /v1/reviewers/workload` (ops_admin; all reviewers + `open_count`) | medium |
+| feat-009 | Decision notify via transactional outbox → Compose **MailDev** (SMTP 1025 / UI 1080) | medium |
+| feat-010 | `auditor` role — read audit (no mutations) | high |
+| feat-011 | `Idempotency-Key` on `POST /v1/prior-auths` only | high |
+| feat-012 | README + `demo.sh` for the above | low |
+
+Implement one feature per branch/worktree; stack on the previous feature branch when migrations would conflict.
 
 ### Coding standards
 
@@ -200,7 +214,8 @@ Covers: failed submit → support lookup → happy submit → claim + 409 race �
 ## How AI was used
 
 - Plan: LLM council + `docs/plans/2026-11-24-prior-auth-api.md` (domain packages, cut wishlist, IntakeRejection, OTel, mutmut, CI).
-- Implementation: Cursor agent following the plan with executing-plans / TDD, ponytail full, Karpathy surgical diffs.
+- Wishlist stretch plan: `docs/plans/2026-11-25-wishlist-outbox-maildev.md` (workload, outbox→MailDev, auditor, Idempotency-Key).
+- Implementation: Cursor agent following the plan with executing-plans / TDD, ponytail full, Karpathy surgical diffs; wishlist via one agent + worktree per feature.
 - Wrong turns fixed: uv had only Python 3.15 beta → Homebrew/Docker **3.15.2**; no `uv:python3.15` image → install uv binary onto `python:3.15.2-slim`; mutmut 3 needs full `app/` in `source_paths` with `only_mutate` on services.
 - Tests are outside-in HTTP (except persistence-truth claim race + DB CHECK).
 

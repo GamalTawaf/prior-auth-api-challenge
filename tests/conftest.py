@@ -359,6 +359,13 @@ def get_audit_as(client: TestClient, request_id: str, role: str = "admin"):
     )
 
 
+def workload_as(client: TestClient, role: str = "admin"):
+    return client.get(
+        "/v1/reviewers/workload",
+        headers=role_headers(client, role),
+    )
+
+
 def race_attempt(fn):
     """Wrap a side-effecting call: success → 'won', ConflictError → 'lost'."""
     from app.shared.errors import ConflictError

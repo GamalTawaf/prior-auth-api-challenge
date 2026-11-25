@@ -4,10 +4,10 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Query
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import selectinload
 
-from app.identity.models import UserRole
+from app.identity.models import User, UserRole
 from app.prior_auth.limits import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from app.prior_auth.models import PriorAuthRequest, RequestStatus
 from app.prior_auth.schemas import (
@@ -15,6 +15,7 @@ from app.prior_auth.schemas import (
     MemberPriorAuthOut,
     PriorAuthOut,
     ReassignIn,
+    ReviewerWorkloadOut,
     SubmitPriorAuthIn,
 )
 from app.prior_auth.serializers import to_member_out, to_prior_auth_out
@@ -122,6 +123,31 @@ def reassign(
 ) -> PriorAuthOut:
     request = reassign_request(db, ctx, request_id, body.reviewer_id)
     return to_prior_auth_out(request)
+
+
+@router.get("/v1/reviewers/workload", response_model=list[ReviewerWorkloadOut])
+def reviewers_workload(db: DbSession, _ctx: AdminUser) -> list[ReviewerWorkloadOut]:
+    claim_match = PriorAuthRequest.claimed_by_user_id == User.id
+    in_review = PriorAuthRequest.status == RequestStatus.in_review
+    join_on = and_(claim_match, in_review)
+    open_count = func.count(PriorAuthRequest.id)
+    open_count_col = open_count.label("open_count")
+    stmt = (
+        select(User.id, User.display_name, open_count_col)
+        .outerjoin(PriorAuthRequest, join_on)
+        .where(User.role == UserRole.reviewer)
+        .group_by(User.id)
+        .order_by(User.display_name, User.id)
+    )
+    rows = db.execute(stmt).all()
+    return [
+        ReviewerWorkloadOut(
+            reviewer_id=row.id,
+            display_name=row.display_name,
+            open_count=row.open_count,
+        )
+        for row in rows
+    ]
 
 
 @router.get("/v1/me/prior-auths", response_model=list[MemberPriorAuthOut])
