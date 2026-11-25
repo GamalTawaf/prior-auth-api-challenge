@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:19
+    environment:
+      POSTGRES_USER: prior
+      POSTGRES_PASSWORD: prior
+      POSTGRES_DB: prior_auth
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prior -d prior_auth"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://prior:prior@db:5432/prior_auth
+      JWT_SECRET: dev-only-change-me
+    depends_on:
+      db:
+        condition: service_healthy
