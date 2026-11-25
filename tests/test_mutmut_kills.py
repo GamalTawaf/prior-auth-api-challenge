@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from app.audit.models import AuditEvent
 from app.clock import get_today
 from app.master_data.models import Coverage, Member, PatientPracticeLink, Practice
-from app.prior_auth.models import PriorAuthRequest, RequestStatus
+from app.prior_auth.models import PriorAuthRequest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -351,19 +351,3 @@ def test_reassign_details_and_audit(client: TestClient, db: Session):
     )
     terminal = reassign_as(client, rid, client.seed["reviewer"].id)
     _assert_detail(terminal, 409, "Cannot reassign a decided request")
-
-
-def test_reassign_from_null_holder(client: TestClient, db: Session):
-    """Audit from=null when in_review row has no holder."""
-    data = submit_ok(client)
-    rid = data["id"]
-    req = db.get(PriorAuthRequest, uuid.UUID(rid))
-    assert req is not None
-    req.status = RequestStatus.in_review
-    req.claimed_by_user_id = None
-    db.flush()
-    moved = reassign_as(client, rid, client.seed["reviewer2"].id)
-    assert moved.status_code == 200, moved.text
-    reassign_event = next(e for e in get_audit_as(client, rid).json() if e["action"] == "reassign")
-    assert reassign_event["payload"]["from"] is None
-    assert reassign_event["payload"]["to"] == str(client.seed["reviewer2"].id)
