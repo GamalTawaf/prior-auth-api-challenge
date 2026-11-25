@@ -9,7 +9,12 @@ from app.clock import utc_now
 from app.identity.models import User, UserRole
 from app.identity.schemas import UserContext
 from app.prior_auth.models import PriorAuthRequest, RequestStatus
-from app.prior_auth.services.common import audit_commit_refresh, get_request, has_coi
+from app.prior_auth.services.common import (
+    audit_commit_refresh,
+    get_request,
+    get_request_for_update,
+    has_coi,
+)
 from app.shared.errors import ConflictError, raise_field
 
 
@@ -18,7 +23,8 @@ def reassign_request(
 ):
     # Status is enforced by the conditional UPDATE below (avoids duplicate early-check strings
     # that mutmut can flip without a covering assertion path).
-    request = get_request(db, request_id)
+    # Lock before capturing previous so concurrent reassigns cannot both audit from=A.
+    request = get_request_for_update(db, request_id)
     previous = request.claimed_by_user_id
 
     reviewer = db.get(User, reviewer_id)
