@@ -149,12 +149,15 @@ Every CI step writes a pass/fail block to the GitHub Actions job summary.
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`):
+GitHub Actions — thin `.github/workflows/ci.yml` calls reusable workflows:
 
-1. **lint** — ruff + call-style + FastAPI/OpenAPI compile
-2. **test** — Postgres 19 service, alembic, pytest with **100% coverage** gate
-3. **mutate** — mutmut on `app/prior_auth/services` (see threshold below)
-4. **image** — `docker build` only (no registry login/push)
+1. **changes** — path filter (`code` vs meta-only)
+2. **lint** — ruff + call-style + FastAPI/OpenAPI compile
+3. **test** — Postgres 19 service, alembic, pytest with **100% coverage** gate
+4. **mutate** — mutmut on `app/prior_auth/services` (see threshold below)
+5. **image** — `docker build` only (no registry login/push)
+
+Branch protection contexts are nested (`lint / lint`, …) because each job is a `workflow_call`.
 
 Meta-only PRs (e.g. `.gitignore`, markdown, docs) still report those four checks green, but skip the heavy steps so branch protection is satisfied without mutmut/pytest/docker. Any change under `app/`, `tests/`, `scripts/`, `alembic/`, lockfiles, Docker, or `.github/workflows|actions` runs the full suite. Do not use `[skip ci]` — required checks would never report.
 
