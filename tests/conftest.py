@@ -34,6 +34,7 @@ from app.master_data.models import (
     ReviewerMemberConflict,
 )
 from app.outbox import models as _outbox_models  # noqa: F401
+from app.prior_auth import idempotency as _idempotency_models  # noqa: F401
 from app.prior_auth import models as _pa_models  # noqa: F401
 
 # App/dev data: `prior_auth`. Pytest uses the same name with a `test_` prefix.
@@ -309,6 +310,15 @@ def submit_as_office(client: TestClient, **overrides):
         json=valid_submit_body(client.seed, **overrides),
     )
     return response
+
+
+def submit_with_idempotency_key(client: TestClient, key: str, **overrides):
+    headers = {**role_headers(client, "office"), "Idempotency-Key": key}
+    return client.post(
+        "/v1/prior-auths",
+        headers=headers,
+        json=valid_submit_body(client.seed, **overrides),
+    )
 
 
 def submit_ok(client: TestClient, **overrides) -> dict:

@@ -50,3 +50,17 @@
 - Verify: `uv run pytest tests/test_auditor.py -v`; `./scripts/gates.sh`
 - Next: feat-011 Idempotency-Key (alembic head = `20261125_auditor`)
 
+
+## 2026-11-25 — feat-010 grit done + feat-011 started
+
+- `grit done -a wishlist-010` → merge `f675d4f` on local `main`
+- Alembic head for 011: `20261125_auditor`
+
+## 2026-11-25 — feat-011 Idempotency-Key on submit
+
+- Migration `20261125_idempotency` (`down_revision = 20261125_auditor`); table `prior_auth_idempotency_keys`
+- `app/prior_auth/idempotency.py` + wire in `create_prior_auth` / `submit_prior_auth`
+- Missing header = create; empty/oversized → 400 `idempotency_key_invalid`; same key+body → replay 201; reuse → 409
+- README Decisions TTL (~24h, prune YAGNI); wishlist row marked implemented; Postman `{{idempotency_key}}`
+- Verify: `uv run pytest tests/test_idempotency.py -v`; `./scripts/gates.sh`
+- Next: feat-012 docs/demo (alembic head = `20261125_idempotency`)

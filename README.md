@@ -121,6 +121,13 @@ require ≥32 bytes from a secret manager, and rotate anything that ever ran wit
 `options={"require": ["exp"]}`. A token without an expiry claim is rejected rather than
 accepted forever, so every issued credential — including seed and demo tokens — ages out.
 
+### Idempotency-Key (submit only)
+
+Partners may send `Idempotency-Key` on `POST /v1/prior-auths`. Scope is `(practice_id, key)`.
+Same key + same body replays the stored **201**; same key + different body → **409**
+`idempotency_key_reuse`. Missing header = non-idempotent create. Keys are intended to live
+**~24h** for partner retries; TTL prune is optional / YAGNI for this take-home.
+
 ### Cut list (not built)
 
 GraphQL, event bus, microservices, real IdP, appeals, retro review, CRUD UIs, AWS deploy, real SES/SendGrid (MailDev only).
@@ -134,7 +141,7 @@ Plan: [`docs/plans/2026-11-25-wishlist-outbox-maildev.md`](docs/plans/2026-11-25
 | feat-008 | **Implemented** — `GET /v1/reviewers/workload` (ops_admin; all reviewers + `open_count`) | medium |
 | feat-009 | **Implemented** — decide enqueues transactional outbox → Compose **MailDev** (SMTP 1025 / UI 1080) via `outbox-worker` | medium |
 | feat-010 | **Implemented** — `auditor` role; `AdminOrAuditor` on audit GET; read-all list/get; mutations 403 | high |
-| feat-011 | `Idempotency-Key` on `POST /v1/prior-auths` only | high |
+| feat-011 | **Implemented** — `Idempotency-Key` on `POST /v1/prior-auths` only (24h TTL story; prune optional) | high |
 | feat-012 | README + `demo.sh` for the above | low |
 
 **feat-009 demo:** `docker compose up -d db maildev api outbox-worker` then decide a request; open MailDev UI at http://localhost:1080. Worker: `python -m app.outbox.worker`. Email body is thin (request id / member / DOS / procedure outcomes only — no clinical_note or denial_reason text).

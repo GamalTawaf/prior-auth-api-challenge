@@ -7,10 +7,12 @@ from app.audit.router import router as audit_router
 from app.intake.router import router as intake_router
 from app.prior_auth.router import router as prior_auth_router
 from app.shared.errors import (
+    BadRequestError,
     ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationFailure,
+    bad_request_handler,
     conflict_handler,
     forbidden_handler,
     not_found_handler,
@@ -40,6 +42,7 @@ app = FastAPI(
 app.add_middleware(LimitRequestBodyMiddleware)
 app.add_exception_handler(ValidationFailure, validation_failure_handler)
 app.add_exception_handler(RequestValidationError, request_validation_handler)
+app.add_exception_handler(BadRequestError, bad_request_handler)
 app.add_exception_handler(ConflictError, conflict_handler)
 app.add_exception_handler(NotFoundError, not_found_handler)
 app.add_exception_handler(ForbiddenError, forbidden_handler)
