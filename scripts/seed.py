@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run python
 """Seed synthetic master data and print JWT tokens for local demos."""
 
 from __future__ import annotations

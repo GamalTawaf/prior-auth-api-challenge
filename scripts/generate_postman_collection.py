@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run python
 """Build Postman Collection v2.1 + environment from live FastAPI OpenAPI."""
 
 from __future__ import annotations
