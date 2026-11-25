@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.identity.models import UserRole
+from app.prior_auth.limits import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from app.prior_auth.models import PriorAuthRequest, RequestStatus
 from app.prior_auth.schemas import (
     DecideIn,
@@ -17,7 +19,7 @@ from app.prior_auth.schemas import (
 )
 from app.prior_auth.serializers import to_member_out, to_prior_auth_out
 from app.prior_auth.services.claim import claim_request
-from app.prior_auth.services.common import coi_free_clause, get_request, has_coi
+from app.prior_auth.services.common import apply_after_id, coi_free_clause, get_request, has_coi
 from app.prior_auth.services.decide import decide_request
 from app.prior_auth.services.reassign import reassign_request
 from app.prior_auth.services.submit import submit_prior_auth
@@ -36,6 +38,9 @@ router = APIRouter(tags=["prior-auth"])
 
 _PROCEDURES = selectinload(PriorAuthRequest.procedures)
 
+PageLimit = Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)]
+AfterId = Annotated[uuid.UUID | None, Query()]
+
 
 @router.post("/v1/prior-auths", response_model=PriorAuthOut, status_code=201)
 def create_prior_auth(body: SubmitPriorAuthIn, db: DbSession, ctx: OfficeUser) -> PriorAuthOut:
@@ -44,12 +49,17 @@ def create_prior_auth(body: SubmitPriorAuthIn, db: DbSession, ctx: OfficeUser) -
 
 
 @router.get("/v1/prior-auths", response_model=list[PriorAuthOut])
-def list_prior_auths(db: DbSession, ctx: OfficeOrAdmin) -> list[PriorAuthOut]:
+def list_prior_auths(
+    db: DbSession,
+    ctx: OfficeOrAdmin,
+    limit: PageLimit = DEFAULT_PAGE_LIMIT,
+    after: AfterId = None,
+) -> list[PriorAuthOut]:
     stmt = select(PriorAuthRequest).options(_PROCEDURES)
     if ctx.role == UserRole.provider_office:
         stmt = stmt.where(PriorAuthRequest.practice_id == ctx.practice_id)
-    newest_first = PriorAuthRequest.created_at.desc()
-    stmt = stmt.order_by(newest_first)
+    stmt = apply_after_id(stmt, after=after, newest_first=True)
+    stmt = stmt.limit(limit)
     rows = db.scalars(stmt).all()
     return [to_prior_auth_out(r) for r in rows]
 
@@ -75,16 +85,21 @@ def get_prior_auth(request_id: uuid.UUID, db: DbSession, ctx: CurrentUser) -> Pr
 
 
 @router.get("/v1/review-queue", response_model=list[PriorAuthOut])
-def review_queue(db: DbSession, ctx: ReviewerUser) -> list[PriorAuthOut]:
+def review_queue(
+    db: DbSession,
+    ctx: ReviewerUser,
+    limit: PageLimit = DEFAULT_PAGE_LIMIT,
+    after: AfterId = None,
+) -> list[PriorAuthOut]:
     unclaimed = PriorAuthRequest.claimed_by_user_id.is_(None)
-    oldest_first = PriorAuthRequest.created_at.asc()
     conflict_free = coi_free_clause(ctx.user_id)
     stmt = (
         select(PriorAuthRequest)
         .where(PriorAuthRequest.status == RequestStatus.submitted, unclaimed, conflict_free)
         .options(_PROCEDURES)
-        .order_by(oldest_first)
     )
+    stmt = apply_after_id(stmt, after=after, newest_first=False)
+    stmt = stmt.limit(limit)
     rows = db.scalars(stmt).all()
     return [to_prior_auth_out(r) for r in rows]
 
@@ -110,14 +125,19 @@ def reassign(
 
 
 @router.get("/v1/me/prior-auths", response_model=list[MemberPriorAuthOut])
-def my_prior_auths(db: DbSession, ctx: MemberUser) -> list[MemberPriorAuthOut]:
-    newest_first = PriorAuthRequest.created_at.desc()
+def my_prior_auths(
+    db: DbSession,
+    ctx: MemberUser,
+    limit: PageLimit = DEFAULT_PAGE_LIMIT,
+    after: AfterId = None,
+) -> list[MemberPriorAuthOut]:
     stmt = (
         select(PriorAuthRequest)
         .where(PriorAuthRequest.member_id == ctx.member_id)
         .options(_PROCEDURES)
-        .order_by(newest_first)
     )
+    stmt = apply_after_id(stmt, after=after, newest_first=True)
+    stmt = stmt.limit(limit)
     rows = db.scalars(stmt).all()
     return [to_member_out(r) for r in rows]
 

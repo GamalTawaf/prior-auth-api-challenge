@@ -2,13 +2,44 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ColumnElement, select
+from sqlalchemy import ColumnElement, Select, select
 from sqlalchemy.orm import Session, raiseload, selectinload
 
 from app.audit.writer import write_audit
 from app.master_data.models import ReviewerMemberConflict
 from app.prior_auth.models import PriorAuthRequest
 from app.shared.errors import NotFoundError
+
+
+def apply_after_id(
+    stmt: Select[tuple[PriorAuthRequest]],
+    *,
+    after: uuid.UUID | None,
+    newest_first: bool,
+) -> Select[tuple[PriorAuthRequest]]:
+    """Keyset page using the last seen request id (stable under inserts; no offset)."""
+    created = PriorAuthRequest.created_at
+    rid = PriorAuthRequest.id
+    created_desc = created.desc()
+    rid_desc = rid.desc()
+    created_asc = created.asc()
+    rid_asc = rid.asc()
+    if newest_first:
+        ordered = stmt.order_by(created_desc, rid_desc)
+    else:
+        ordered = stmt.order_by(created_asc, rid_asc)
+    if after is None:
+        return ordered
+
+    cursor_created = select(created).where(rid == after).scalar_subquery()
+    if newest_first:
+        older = created < cursor_created
+        tie = (created == cursor_created) & (rid < after)
+        return ordered.where(older | tie)
+
+    newer = created > cursor_created
+    tie = (created == cursor_created) & (rid > after)
+    return ordered.where(newer | tie)
 
 
 def has_coi(db: Session, reviewer_id: uuid.UUID, member_id: uuid.UUID) -> bool:
