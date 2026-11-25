@@ -159,15 +159,15 @@ GitHub Actions (`.github/workflows/ci.yml`):
 
 Scoped via `setup.cfg`: `source_paths=app/`, `only_mutate=app/prior_auth/services/*`.
 
-**Do not run bare `uv run mutmut run`.** Two footguns:
+**Do not run bare `uv run mutmut run`.** Use the wrapper — it prepares per-child DBs and sets the worker count:
 
-1. **Parallel children** race on shared Postgres (`DROP SCHEMA test_prior_auth`) → `UndefinedTable` / failed stats. Always `--max-children 1`. Pytest uses schema `test_prior_auth` only; app/dev data in `prior_auth` is never dropped.
+1. **Parallel children** each claim an exclusive `prior_auth_mutmut_{i}` DB (via flock) so `DROP SCHEMA test_prior_auth` does not race. Default `--max-children 4` (`MUTMUT_MAX_CHILDREN`). Pytest still uses schema `test_prior_auth` only; app/dev data in `prior_auth` is never dropped.
 2. **Stale `mutants/` cache** → `0 files mutated` and a spinner at `0.00 mutations/second` replaying old 🎉/🙁 counts. Wipe the cache (or use the wrapper).
 
 ```bash
 ./scripts/run_mutmut.sh
+# more workers: MUTMUT_MAX_CHILDREN=8 ./scripts/run_mutmut.sh
 # resumes only: MUTMUT_KEEP_CACHE=1 ./scripts/run_mutmut.sh
-# or: rm -rf mutants && uv run mutmut run --max-children 1
 ```
 
 `setup.cfg` sets `on_dependency_change=rerun` so non-Python dep changes also invalidate results.

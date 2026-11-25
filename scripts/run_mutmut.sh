@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Mutation testing against a shared Postgres must be serial: each pytest session
-# drops/recreates public schema, so parallel mutmut children race and fail stats
-# (UndefinedTable / "failed to collect stats").
+# Parallel mutmut: each child claims an exclusive prior_auth_mutmut_{i} DB so
+# DROP SCHEMA test_prior_auth in pytest sessions does not race.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 # Optional ceiling while driving survivors to zero. Unset or 0 = require none.
 MAX_SURVIVORS="${MUTMUT_MAX_SURVIVORS:-0}"
+
+# Default children: 4 (override with MUTMUT_MAX_CHILDREN). Needs matching DBs.
+MUTMUT_MAX_CHILDREN="${MUTMUT_MAX_CHILDREN:-4}"
+export MUTMUT_MAX_CHILDREN
+export MUTMUT_PARALLEL_DBS=1
 
 # Default: wipe mutants/ so we do not print a stale 🎉/🙁 spinner at 0.00 mut/s.
 # Set MUTMUT_KEEP_CACHE=1 to resume an interrupted run.
@@ -16,8 +20,11 @@ if [[ "${MUTMUT_KEEP_CACHE:-0}" != "1" ]]; then
   rm -rf mutants
 fi
 
-echo "=== mutmut (max-children=1) ==="
-uv run mutmut run --max-children 1 "$@"
+echo "=== ensure mutmut DBs (prior_auth_mutmut_0..$((MUTMUT_MAX_CHILDREN - 1))) ==="
+uv run python scripts/ensure_mutmut_dbs.py "$MUTMUT_MAX_CHILDREN"
+
+echo "=== mutmut (max-children=${MUTMUT_MAX_CHILDREN}) ==="
+uv run mutmut run --max-children "$MUTMUT_MAX_CHILDREN" "$@"
 
 results="$(uv run mutmut results 2>&1 || true)"
 echo "$results"

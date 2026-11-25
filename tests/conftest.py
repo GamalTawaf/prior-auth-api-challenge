@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import fcntl
 import os
+import tempfile
 import uuid
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://prior:prior@localhost:5432/prior_auth")
@@ -33,19 +38,63 @@ from app.prior_auth import models as _pa_models  # noqa: F401
 # App/dev data: `prior_auth`. Pytest uses the same name with a `test_` prefix.
 TEST_SCHEMA = f"test_{APP_SCHEMA}"
 
+# Held open for the pytest session so flock stays exclusive until teardown.
+_MUTMUT_SLOT_LOCK_FD = None
+
 
 def _bind_metadata_to_test_schema() -> None:
-    """Qualify all ORM tables so queries do not depend on session search_path."""
+    """Qualify tables + PG enums so empty mutmut DBs need only test_prior_auth."""
     Base.metadata.schema = TEST_SCHEMA
     for table in Base.metadata.tables.values():
         table.schema = TEST_SCHEMA
+        for column in table.columns:
+            col_type = column.type
+            if isinstance(col_type, SAEnum):
+                col_type.schema = TEST_SCHEMA
+
+
+def _claim_mutmut_database_url(base_url: str) -> str:
+    """Exclusive slot → prior_auth_mutmut_{i} so parallel mutmut children do not race."""
+    global _MUTMUT_SLOT_LOCK_FD
+    if os.environ.get("MUTMUT_PARALLEL_DBS") != "1":
+        return base_url
+
+    n = int(os.environ.get("MUTMUT_MAX_CHILDREN", "4"))
+    lock_dir = Path(tempfile.gettempdir()) / "prior-auth-mutmut-slots"
+    lock_dir.mkdir(exist_ok=True)
+    url = make_url(base_url)
+    for i in range(n):
+        lock_path = lock_dir / f"slot_{i}.lock"
+        # Keep fd open until session teardown so the flock stays exclusive.
+        fd = open(lock_path, "a+", encoding="utf-8")  # noqa: SIM115
+        try:
+            fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            fd.close()
+            continue
+        _MUTMUT_SLOT_LOCK_FD = fd
+        return url.set(database=f"prior_auth_mutmut_{i}").render_as_string(hide_password=False)
+    raise RuntimeError(f"could not claim a mutmut DB slot among {n} (all busy)")
+
+
+def _release_mutmut_slot() -> None:
+    global _MUTMUT_SLOT_LOCK_FD
+    fd = _MUTMUT_SLOT_LOCK_FD
+    _MUTMUT_SLOT_LOCK_FD = None
+    if fd is None:
+        return
+    try:
+        fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
+    finally:
+        fd.close()
 
 
 @pytest.fixture(scope="session")
 def engine():
     _bind_metadata_to_test_schema()
+    db_url = _claim_mutmut_database_url(settings.database_url)
     eng = create_engine(
-        settings.database_url,
+        db_url,
         pool_pre_ping=True,
         connect_args={"options": f"-csearch_path={TEST_SCHEMA}"},
     )
@@ -63,9 +112,13 @@ def engine():
         cursor.close()
 
     Base.metadata.create_all(eng)
-    yield eng
-    with eng.begin() as conn:
-        conn.execute(text(f"DROP SCHEMA IF EXISTS {TEST_SCHEMA} CASCADE"))
+    try:
+        yield eng
+    finally:
+        with eng.begin() as conn:
+            conn.execute(text(f"DROP SCHEMA IF EXISTS {TEST_SCHEMA} CASCADE"))
+        eng.dispose()
+        _release_mutmut_slot()
 
 
 @pytest.fixture
