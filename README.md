@@ -7,10 +7,10 @@ Durable Python + PostgreSQL prior-auth backend (Oxbridge Health take-home). Doma
 ```bash
 # Requires Python 3.15.x (Homebrew 3.15.2), Docker, uv
 uv sync
-docker compose up --build -d
-uv run alembic upgrade head
-uv run python scripts/seed.py   # prints JWT tokens
+docker compose up --build -d          # api entrypoint runs alembic upgrade head
+uv run python scripts/seed.py         # prints JWT tokens (required once after empty DB)
 curl -sf localhost:8000/v1/health
+# pytest drops/recreates public schema on DATABASE_URL — re-seed (or restart api) after
 uv run pytest -q --cov=app --cov-report=term-missing   # fail_under=100
 ./scripts/demo.sh
 ```
