@@ -1,124 +1,26 @@
 name: ci
 on: [push, pull_request]
 
+env:
+  DATABASE_URL: postgresql+psycopg://prior:prior@localhost:5432/prior_auth
+  JWT_SECRET: ci-secret-32-bytes-minimum-key!!
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-        with:
-          python-version: "3.15"
-      - name: uv sync
-        run: |
-          uv sync
-          {
-            echo "### uv sync: PASSED"
-            echo ""
-            echo "Installed prod + dependency-groups.dev for Python 3.15"
-            echo ""
-          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-project
       - name: ruff format
-        run: |
-          set -o pipefail
-          out="$(mktemp)"
-          if uv run ruff format --check app tests scripts | tee "$out"; then
-            {
-              echo "### ruff format: PASSED"
-              echo ""
-              echo '```'
-              cat "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            {
-              echo "### ruff format: FAILED"
-              echo ""
-              echo '```'
-              cat "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
+        run: ./scripts/ci_run.sh "ruff format" -- uv run ruff format --check app tests scripts
       - name: ruff lint
-        run: |
-          set -o pipefail
-          out="$(mktemp)"
-          if uv run ruff check app tests scripts | tee "$out"; then
-            {
-              echo "### ruff lint: PASSED"
-              echo ""
-              echo '```'
-              cat "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            {
-              echo "### ruff lint: FAILED"
-              echo ""
-              echo '```'
-              cat "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
+        run: ./scripts/ci_run.sh "ruff lint" -- uv run ruff check app tests scripts
       - name: call style
-        run: |
-          set -o pipefail
-          out="$(mktemp)"
-          if uv run python scripts/check_call_style.py | tee "$out"; then
-            {
-              echo "### call style: PASSED"
-              echo ""
-              echo "No nested non-constructor calls or conditions inside function call arguments (app/)."
-              echo ""
-              echo '```'
-              cat "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            {
-              echo "### call style: FAILED"
-              echo ""
-              echo '```'
-              cat "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
+        run: ./scripts/ci_run.sh "call style" -- uv run python scripts/check_call_style.py
       - name: fastapi compile + OpenAPI
-        run: |
-          set -o pipefail
-          out="$(mktemp)"
-          if uv run python scripts/check_fastapi_compile.py | tee "$out"; then
-            {
-              echo "### fastapi compile: PASSED"
-              echo ""
-              echo '```'
-              cat "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            {
-              echo "### fastapi compile: FAILED"
-              echo ""
-              echo '```'
-              cat "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
+        run: ./scripts/ci_run.sh "fastapi compile" -- uv run python scripts/check_fastapi_compile.py
 
   test:
-    needs: lint
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -133,69 +35,15 @@ jobs:
           --health-interval 2s
           --health-timeout 5s
           --health-retries 15
-    env:
-      DATABASE_URL: postgresql+psycopg://prior:prior@localhost:5432/prior_auth
-      JWT_SECRET: ci-secret-32-bytes-minimum-key!!
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-        with:
-          python-version: "3.15"
-      - name: uv sync
-        run: |
-          uv sync
-          echo "### uv sync: PASSED" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-project
       - name: alembic migrate
-        run: |
-          set -o pipefail
-          out="$(mktemp)"
-          if uv run alembic upgrade head | tee "$out"; then
-            {
-              echo "### alembic upgrade head: PASSED"
-              echo ""
-              echo '```'
-              cat "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            {
-              echo "### alembic upgrade head: FAILED"
-              echo ""
-              echo '```'
-              cat "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
+        run: ./scripts/ci_run.sh "alembic upgrade head" -- uv run alembic upgrade head
       - name: pytest + coverage
-        run: |
-          set -o pipefail
-          out="$(mktemp)"
-          if uv run pytest -q --cov=app --cov-report=term-missing | tee "$out"; then
-            {
-              echo "### pytest + coverage: PASSED"
-              echo ""
-              echo '```'
-              tail -n 40 "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            {
-              echo "### pytest + coverage: FAILED"
-              echo ""
-              echo '```'
-              tail -n 60 "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
+        run: ./scripts/ci_run.sh "pytest + coverage" --tail 40 -- uv run pytest -q --cov=app --cov-report=term-missing
 
   mutate:
-    needs: test
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -210,71 +58,20 @@ jobs:
           --health-interval 2s
           --health-timeout 5s
           --health-retries 15
-    env:
-      DATABASE_URL: postgresql+psycopg://prior:prior@localhost:5432/prior_auth
-      JWT_SECRET: ci-secret-32-bytes-minimum-key!!
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-        with:
-          python-version: "3.15"
-      - run: uv sync
-      - run: uv run alembic upgrade head
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-project
+      - name: alembic migrate
+        run: ./scripts/ci_run.sh "alembic upgrade head" -- uv run alembic upgrade head
       - name: mutmut prior_auth services
         env:
-          # Drive toward 0; parallel mutmut is unsafe on shared Postgres (see scripts/run_mutmut.sh).
           MUTMUT_MAX_SURVIVORS: "0"
-        run: |
-          set -o pipefail
-          out="$(mktemp)"
-          if ./scripts/run_mutmut.sh | tee "$out"; then
-            {
-              echo "### mutmut: PASSED"
-              echo ""
-              echo '```'
-              tail -n 40 "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            {
-              echo "### mutmut: FAILED"
-              echo ""
-              echo '```'
-              tail -n 60 "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
+        run: ./scripts/ci_run.sh "mutmut" --tail 40 -- ./scripts/run_mutmut.sh
 
   image:
+    needs: [lint, test, mutate]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: docker build (no push)
-        run: |
-          set -o pipefail
-          out="$(mktemp)"
-          if docker build -t prior-auth-api:ci . | tee "$out"; then
-            {
-              echo "### docker build: PASSED"
-              echo ""
-              echo "Image tag: \`prior-auth-api:ci\` (not pushed)"
-              echo ""
-              echo '```'
-              tail -n 30 "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            {
-              echo "### docker build: FAILED"
-              echo ""
-              echo '```'
-              tail -n 60 "$out"
-              echo '```'
-              echo ""
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
+        run: ./scripts/ci_run.sh "docker build" --tail 30 -- docker build -t prior-auth-api:ci .
