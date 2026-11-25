@@ -1,7 +1,7 @@
 """add domain check constraints
 
 Revision ID: c7f3a91e2b04
-Revises: 20261125_prior_auth
+Revises: 9e19ee1c2574
 Create Date: 2026-11-25 10:20:00.000000
 """
 
@@ -10,7 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 
 revision: str = "c7f3a91e2b04"
-down_revision: Union[str, None] = "20261125_prior_auth"
+down_revision: Union[str, None] = "9e19ee1c2574"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
