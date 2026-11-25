@@ -115,6 +115,7 @@ def main() -> None:
         "values": env_values,
     }
 
+    OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "Prior_Auth_API.postman_collection.json").write_text(json.dumps(collection, indent=2))
     (OUT / "Prior_Auth_API.postman_environment.json").write_text(json.dumps(environment, indent=2))
     paths = {item["request"]["url"]["raw"] for item in collection["item"]}
