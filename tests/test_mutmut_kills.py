@@ -62,7 +62,11 @@ def test_submit_boundaries_and_normalization(client: TestClient):
 
 def test_submit_coverage_and_link_filters(client: TestClient, db: Session):
     today = get_today()
-    other = Practice(id=uuid.uuid4(), name="Elsewhere")
+    other = Practice(
+        id=uuid.uuid4(),
+        name="Elsewhere",
+        notification_email="elsewhere@example.com",
+    )
     db.add(other)
     db.flush()
     # Linked only to another practice → office must still get member_not_linked.

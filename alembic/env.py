@@ -15,6 +15,7 @@ from app.master_data.models import (  # noqa: F401
     Practice,
     ReviewerMemberConflict,
 )
+from app.outbox.models import OutboxEvent  # noqa: F401
 from app.prior_auth.models import PriorAuthProcedure, PriorAuthRequest  # noqa: F401
 
 config = context.config

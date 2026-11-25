@@ -77,8 +77,8 @@
       "name": "Outbox + MailDev decision notify",
       "description": "practices.notification_email; outbox_events; enqueue on decide same txn; outbox-worker SMTP via stdlib to MailDev; Compose maildev+worker; no clinical_note/denial_reason in email body. Plan: docs/plans/2026-11-25-wishlist-outbox-maildev.md. Lane: medium.",
       "dependencies": ["feat-008"],
-      "status": "pending",
-      "evidence": "",
+      "status": "done",
+      "evidence": "uv run pytest tests/test_outbox.py -v → 12 passed; ./scripts/gates.sh green; alembic 20261125_outbox; Compose maildev+outbox-worker",
       "verify": "uv run pytest tests/test_outbox.py -v && docker compose up -d maildev outbox-worker"
     },
     {

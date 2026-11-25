@@ -131,12 +131,14 @@ Plan: [`docs/plans/2026-11-25-wishlist-outbox-maildev.md`](docs/plans/2026-11-25
 | Feature | Behavior | Lane |
 |---------|----------|------|
 | feat-008 | **Implemented** — `GET /v1/reviewers/workload` (ops_admin; all reviewers + `open_count`) | medium |
-| feat-009 | Decision notify via transactional outbox → Compose **MailDev** (SMTP 1025 / UI 1080) | medium |
+| feat-009 | **Implemented** — decide enqueues transactional outbox → Compose **MailDev** (SMTP 1025 / UI 1080) via `outbox-worker` | medium |
 | feat-010 | `auditor` role — read audit (no mutations) | high |
 | feat-011 | `Idempotency-Key` on `POST /v1/prior-auths` only | high |
 | feat-012 | README + `demo.sh` for the above | low |
 
-Implement one feature per branch/worktree; stack on the previous feature branch when migrations would conflict.
+**feat-009 demo:** `docker compose up -d db maildev api outbox-worker` then decide a request; open MailDev UI at http://localhost:1080. Worker: `python -m app.outbox.worker`. Email body is thin (request id / member / DOS / procedure outcomes only — no clinical_note or denial_reason text).
+
+Implement one feature per agent. Prefer **[grit](https://github.com/rtk-ai/grit)** (`grit claim` → `.grit/worktrees/<agent>/` → `grit done`) when agents run in parallel; reindex with `./scripts/grit_reindex.sh`. Stack or serialize **Alembic** heads even under grit (AST locks do not merge migration graphs).
 
 ### Coding standards
 

@@ -18,3 +18,5 @@ worktrees/
 # Generated Postman artifacts + desktop sync dumps (run scripts/generate_postman_collection.py)
 .postman/
 postman/
+
+.grit
