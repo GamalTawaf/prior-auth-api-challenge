@@ -40,6 +40,8 @@ class PriorAuthRequest(Base):
             name="ck_decided_requires_actor",
         ),
         Index("ix_pa_queue", "status", "claimed_by_user_id"),
+        Index("ix_pa_member_created", "member_id", "created_at"),
+        Index("ix_pa_practice_created", "practice_id", "created_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
