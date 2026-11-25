@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Apply .github/repo-settings.json to the GitHub remote (squash-only + main protection).
+# Apply .github/repo-settings.json to the GitHub remote (rebase-only + main protection).
 # Requires: gh auth with admin on the repo. Branch protection needs a public repo or GitHub Pro.
 set -euo pipefail
 
