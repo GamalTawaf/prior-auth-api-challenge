@@ -15,12 +15,6 @@ dist/
 .superpowers/
 .worktrees/
 worktrees/
-# Postman desktop sync dumps (keep generated *.postman_*.json tracked)
+# Generated Postman artifacts + desktop sync dumps (run scripts/generate_postman_collection.py)
 .postman/
-postman/collections/
-postman/environments/
-postman/globals/
-postman/documents/
-postman/flows/
-postman/mocks/
-postman/specs/
+postman/

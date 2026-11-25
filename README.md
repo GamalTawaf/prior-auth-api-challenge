@@ -180,7 +180,7 @@ Scoped via `setup.cfg`: `source_paths=app/`, `only_mutate=app/prior_auth/service
 uv run python scripts/generate_postman_collection.py
 ```
 
-Import `postman/Prior_Auth_API.postman_collection.json` + `postman/Prior_Auth_API.postman_environment.json`. Collection is generated from `app.openapi()` (Bearer `{{token}}`; env has role tokens).
+Writes `postman/*.json` from `app.openapi()` (not committed). Import the collection + environment in Postman (`Bearer {{token}}`; env has role tokens).
 
 ## Live walkthrough
 
