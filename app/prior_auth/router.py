@@ -19,7 +19,7 @@ from app.prior_auth.schemas import (
 )
 from app.prior_auth.serializers import to_member_out, to_prior_auth_out
 from app.prior_auth.services.claim import claim_request
-from app.prior_auth.services.common import coi_free_clause, get_request, has_coi
+from app.prior_auth.services.common import apply_after_id, coi_free_clause, get_request, has_coi
 from app.prior_auth.services.decide import decide_request
 from app.prior_auth.services.reassign import reassign_request
 from app.prior_auth.services.submit import submit_prior_auth
@@ -39,7 +39,7 @@ router = APIRouter(tags=["prior-auth"])
 _PROCEDURES = selectinload(PriorAuthRequest.procedures)
 
 PageLimit = Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)]
-PageOffset = Annotated[int, Query(ge=0)]
+AfterId = Annotated[uuid.UUID | None, Query()]
 
 
 @router.post("/v1/prior-auths", response_model=PriorAuthOut, status_code=201)
@@ -53,13 +53,13 @@ def list_prior_auths(
     db: DbSession,
     ctx: OfficeOrAdmin,
     limit: PageLimit = DEFAULT_PAGE_LIMIT,
-    offset: PageOffset = 0,
+    after: AfterId = None,
 ) -> list[PriorAuthOut]:
     stmt = select(PriorAuthRequest).options(_PROCEDURES)
     if ctx.role == UserRole.provider_office:
         stmt = stmt.where(PriorAuthRequest.practice_id == ctx.practice_id)
-    newest_first = PriorAuthRequest.created_at.desc()
-    stmt = stmt.order_by(newest_first).limit(limit).offset(offset)
+    stmt = apply_after_id(stmt, after=after, newest_first=True)
+    stmt = stmt.limit(limit)
     rows = db.scalars(stmt).all()
     return [to_prior_auth_out(r) for r in rows]
 
@@ -89,19 +89,17 @@ def review_queue(
     db: DbSession,
     ctx: ReviewerUser,
     limit: PageLimit = DEFAULT_PAGE_LIMIT,
-    offset: PageOffset = 0,
+    after: AfterId = None,
 ) -> list[PriorAuthOut]:
     unclaimed = PriorAuthRequest.claimed_by_user_id.is_(None)
-    oldest_first = PriorAuthRequest.created_at.asc()
     conflict_free = coi_free_clause(ctx.user_id)
     stmt = (
         select(PriorAuthRequest)
         .where(PriorAuthRequest.status == RequestStatus.submitted, unclaimed, conflict_free)
         .options(_PROCEDURES)
-        .order_by(oldest_first)
-        .limit(limit)
-        .offset(offset)
     )
+    stmt = apply_after_id(stmt, after=after, newest_first=False)
+    stmt = stmt.limit(limit)
     rows = db.scalars(stmt).all()
     return [to_prior_auth_out(r) for r in rows]
 
@@ -131,17 +129,15 @@ def my_prior_auths(
     db: DbSession,
     ctx: MemberUser,
     limit: PageLimit = DEFAULT_PAGE_LIMIT,
-    offset: PageOffset = 0,
+    after: AfterId = None,
 ) -> list[MemberPriorAuthOut]:
-    newest_first = PriorAuthRequest.created_at.desc()
     stmt = (
         select(PriorAuthRequest)
         .where(PriorAuthRequest.member_id == ctx.member_id)
         .options(_PROCEDURES)
-        .order_by(newest_first)
-        .limit(limit)
-        .offset(offset)
     )
+    stmt = apply_after_id(stmt, after=after, newest_first=True)
+    stmt = stmt.limit(limit)
     rows = db.scalars(stmt).all()
     return [to_member_out(r) for r in rows]
 

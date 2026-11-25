@@ -14,7 +14,7 @@ from tests.conftest import role_headers, submit_ok
         ("/v1/me/prior-auths", "member"),
     ],
 )
-def test_list_endpoints_honor_limit_and_offset(client: TestClient, path: str, role: str):
+def test_list_endpoints_honor_limit_and_after_id(client: TestClient, path: str, role: str):
     for _ in range(3):
         submit_ok(client)
 
@@ -29,12 +29,20 @@ def test_list_endpoints_honor_limit_and_offset(client: TestClient, path: str, ro
     assert len(first.json()) == 1
     assert first.json()[0]["id"] == all_ids[0]
 
-    second = client.get(path, headers=headers, params={"limit": 1, "offset": 1})
+    second = client.get(
+        path,
+        headers=headers,
+        params={"limit": 1, "after": all_ids[0]},
+    )
     assert second.status_code == 200, second.text
     assert len(second.json()) == 1
     assert second.json()[0]["id"] == all_ids[1]
 
-    page = client.get(path, headers=headers, params={"limit": 2, "offset": 1})
+    page = client.get(
+        path,
+        headers=headers,
+        params={"limit": 2, "after": all_ids[0]},
+    )
     assert page.status_code == 200, page.text
     assert [row["id"] for row in page.json()] == all_ids[1:3]
 
