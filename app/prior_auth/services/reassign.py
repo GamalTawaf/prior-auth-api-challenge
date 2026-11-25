@@ -62,10 +62,8 @@ def reassign_request(
         raise ConflictError("Request must be in_review to reassign")
 
     request = get_request(db, request_id, load_procedures=True)
-    if previous is not None:  # noqa: SIM108 — explicit branch keeps null-holder audit killable
-        previous_str = str(previous)
-    else:
-        previous_str = None
+    # in_review rows always have a claimant (DB CHECK); previous is never None here.
+    previous_str = str(previous)
     return audit_commit_refresh(
         db,
         request,
