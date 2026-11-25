@@ -16,7 +16,7 @@ os.environ.setdefault("JWT_SECRET", "test-secret-32-bytes-minimum!!!!")
 from app.audit import models as _audit_models  # noqa: F401
 from app.clock import get_today
 from app.config import settings
-from app.db import Base, get_db
+from app.db import APP_SCHEMA, Base, get_db
 from app.identity.auth import mint_token
 from app.identity.models import User, UserRole
 from app.intake import models as _intake_models  # noqa: F401
@@ -30,9 +30,8 @@ from app.master_data.models import (
 )
 from app.prior_auth import models as _pa_models  # noqa: F401
 
-# Dev/demo Compose data lives in `public`. Pytest never touches it.
-DEV_SCHEMA = "public"
-TEST_SCHEMA = f"test_{DEV_SCHEMA}"
+# App/dev data: `prior_auth`. Pytest uses the same name with a `test_` prefix.
+TEST_SCHEMA = f"test_{APP_SCHEMA}"
 
 
 def _bind_metadata_to_test_schema() -> None:
