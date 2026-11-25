@@ -1,5 +1,13 @@
 name: ci
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# One run per PR (or per branch on main); newer pushes cancel the older run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   DATABASE_URL: postgresql+psycopg://prior:prior@localhost:5432/prior_auth
