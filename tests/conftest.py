@@ -30,18 +30,32 @@ from app.master_data.models import (
 )
 from app.prior_auth import models as _pa_models  # noqa: F401
 
+# Dev/demo Compose data lives in `public`. Pytest never touches it.
+DEV_SCHEMA = "public"
+TEST_SCHEMA = f"test_{DEV_SCHEMA}"
+
 
 @pytest.fixture(scope="session")
 def engine():
     eng = create_engine(settings.database_url, pool_pre_ping=True)
     with eng.begin() as conn:
-        conn.execute(text("DROP SCHEMA public CASCADE"))
-        conn.execute(text("CREATE SCHEMA public"))
+        drop = text(f"DROP SCHEMA IF EXISTS {TEST_SCHEMA} CASCADE")
+        create = text(f"CREATE SCHEMA {TEST_SCHEMA}")
+        conn.execute(drop)
+        conn.execute(create)
+
+    @event.listens_for(eng, "connect")
+    def _set_test_search_path(dbapi_conn, _connection_record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute(f"SET search_path TO {TEST_SCHEMA}")
+        cursor.close()
+
+    # Drop pooled connections opened before the search_path listener existed.
+    eng.dispose()
     Base.metadata.create_all(eng)
     yield eng
     with eng.begin() as conn:
-        conn.execute(text("DROP SCHEMA public CASCADE"))
-        conn.execute(text("CREATE SCHEMA public"))
+        conn.execute(text(f"DROP SCHEMA IF EXISTS {TEST_SCHEMA} CASCADE"))
 
 
 @pytest.fixture

@@ -161,7 +161,7 @@ Scoped via `setup.cfg`: `source_paths=app/`, `only_mutate=app/prior_auth/service
 
 **Do not run bare `uv run mutmut run`.** Two footguns:
 
-1. **Parallel children** race on shared Postgres (`DROP SCHEMA`) → `UndefinedTable` / failed stats. Always `--max-children 1`.
+1. **Parallel children** race on shared Postgres (`DROP SCHEMA test_public`) → `UndefinedTable` / failed stats. Always `--max-children 1`. Pytest uses schema `test_public` only; Compose/dev data in `public` is never dropped.
 2. **Stale `mutants/` cache** → `0 files mutated` and a spinner at `0.00 mutations/second` replaying old 🎉/🙁 counts. Wipe the cache (or use the wrapper).
 
 ```bash
