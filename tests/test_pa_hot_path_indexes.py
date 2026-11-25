@@ -25,19 +25,17 @@ def test_hot_path_indexes_created_on_schema(engine: Engine):
     assert by_name["ix_pa_practice_created"] == ["practice_id", "created_at"]
 
 
-def test_hot_path_indexes_migration_parents_prior_auth_head():
-    # Import the revision module (present in repo; mutmut may omit alembic/).
+def test_baseline_migration_is_single_head():
     import importlib.util
     from pathlib import Path
 
-    path = (
-        Path(__file__).resolve().parents[1] / "alembic/versions/9e19ee1c2574_pa_hot_path_indexes.py"
-    )
-    if not path.is_file():
-        return
-    spec = importlib.util.spec_from_file_location("pa_hot_path_indexes", path)
+    versions = Path(__file__).resolve().parents[1] / "alembic/versions"
+    files = sorted(versions.glob("*.py"))
+    assert len(files) == 1, files
+    spec = importlib.util.spec_from_file_location("baseline_migration", files[0])
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    assert mod.revision == "9e19ee1c2574"
-    assert mod.down_revision == "20261125_prior_auth"
+    assert mod.down_revision is None
+    assert "ix_pa_member_created" in files[0].read_text()
+    assert "ix_pa_practice_created" in files[0].read_text()
