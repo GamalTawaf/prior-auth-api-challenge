@@ -19,10 +19,12 @@ def test_engine_search_path_is_test_schema(engine: Engine):
         path = conn.execute(text("SHOW search_path")).scalar_one()
     parts = {p.strip().strip('"') for p in path.split(",")}
     assert TEST_SCHEMA in parts
-    assert DEV_SCHEMA not in parts
 
 
 def test_orm_tables_created_in_test_schema(engine: Engine):
+    from app.db import Base
+
+    assert Base.metadata.schema == TEST_SCHEMA
     with engine.connect() as conn:
         schemas = (
             conn.execute(

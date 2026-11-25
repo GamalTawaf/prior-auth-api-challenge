@@ -35,23 +35,34 @@ DEV_SCHEMA = "public"
 TEST_SCHEMA = f"test_{DEV_SCHEMA}"
 
 
+def _bind_metadata_to_test_schema() -> None:
+    """Qualify all ORM tables so queries do not depend on session search_path."""
+    Base.metadata.schema = TEST_SCHEMA
+    for table in Base.metadata.tables.values():
+        table.schema = TEST_SCHEMA
+
+
 @pytest.fixture(scope="session")
 def engine():
-    eng = create_engine(settings.database_url, pool_pre_ping=True)
+    _bind_metadata_to_test_schema()
+    eng = create_engine(
+        settings.database_url,
+        pool_pre_ping=True,
+        connect_args={"options": f"-csearch_path={TEST_SCHEMA}"},
+    )
     with eng.begin() as conn:
         drop = text(f"DROP SCHEMA IF EXISTS {TEST_SCHEMA} CASCADE")
         create = text(f"CREATE SCHEMA {TEST_SCHEMA}")
         conn.execute(drop)
         conn.execute(create)
 
-    @event.listens_for(eng, "connect")
-    def _set_test_search_path(dbapi_conn, _connection_record):
+    @event.listens_for(eng, "checkout")
+    def _set_test_search_path(dbapi_conn, _connection_record, _connection_proxy):
+        # Re-apply on every checkout; pool reset can restore the default path.
         cursor = dbapi_conn.cursor()
         cursor.execute(f"SET search_path TO {TEST_SCHEMA}")
         cursor.close()
 
-    # Drop pooled connections opened before the search_path listener existed.
-    eng.dispose()
     Base.metadata.create_all(eng)
     yield eng
     with eng.begin() as conn:
