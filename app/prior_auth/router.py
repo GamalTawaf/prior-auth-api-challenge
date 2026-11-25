@@ -29,7 +29,7 @@ from app.shared.deps import (
     CurrentUser,
     DbSession,
     MemberUser,
-    OfficeOrAdmin,
+    OfficeAdminOrAuditor,
     OfficeUser,
     ReviewerUser,
 )
@@ -52,7 +52,7 @@ def create_prior_auth(body: SubmitPriorAuthIn, db: DbSession, ctx: OfficeUser) -
 @router.get("/v1/prior-auths", response_model=list[PriorAuthOut])
 def list_prior_auths(
     db: DbSession,
-    ctx: OfficeOrAdmin,
+    ctx: OfficeAdminOrAuditor,
     limit: PageLimit = DEFAULT_PAGE_LIMIT,
     after: AfterId = None,
 ) -> list[PriorAuthOut]:
@@ -78,7 +78,7 @@ def get_prior_auth(request_id: uuid.UUID, db: DbSession, ctx: CurrentUser) -> Pr
             raise ForbiddenError("Not allowed to view this request")
         if has_coi(db, ctx.user_id, request.member_id):
             raise ForbiddenError("Conflict of interest with this member")
-    elif ctx.role == UserRole.ops_admin:
+    elif ctx.role == UserRole.ops_admin or ctx.role == UserRole.auditor:
         pass
     else:
         raise ForbiddenError("Not allowed")

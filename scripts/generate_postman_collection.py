@@ -15,6 +15,7 @@ from app.main import app
 
 from scripts.seed import (
     ADMIN_ID,
+    AUDITOR_ID,
     MEMBER_ID,
     MEMBER_UNLINKED_ID,
     MEMBER_USER_ID,
@@ -60,7 +61,8 @@ _TOKEN_FOR: dict[tuple[str, str], str] = {
     ("post", "/v1/prior-auths/{request_id}/claim"): "{{reviewer_token}}",
     ("post", "/v1/prior-auths/{request_id}/decision"): "{{reviewer_token}}",
     ("post", "/v1/prior-auths/{request_id}/reassign"): "{{admin_token}}",
-    ("get", "/v1/prior-auths/{request_id}/audit"): "{{admin_token}}",
+    ("get", "/v1/prior-auths/{request_id}/audit"): "{{auditor_token}}",
+    ("get", "/v1/reviewers/workload"): "{{admin_token}}",
     ("get", "/v1/me/prior-auths"): "{{member_token}}",
     ("get", "/v1/me/prior-auths/{request_id}"): "{{member_token}}",
     ("get", "/v1/support/intake-rejections/{correlation_id}"): "{{office_token}}",
@@ -271,6 +273,12 @@ def main() -> None:
         ),
         "admin_token": User(
             id=ADMIN_ID, email="admin@example.com", role=UserRole.ops_admin, display_name="a"
+        ),
+        "auditor_token": User(
+            id=AUDITOR_ID,
+            email="auditor@example.com",
+            role=UserRole.auditor,
+            display_name="au",
         ),
         "member_token": User(
             id=MEMBER_USER_ID,

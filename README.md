@@ -27,6 +27,7 @@ OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
 | `reviewer` | clean reviewer |
 | `reviewer_coi` | reviewer with COI on seeded member |
 | `admin` | ops admin |
+| `auditor` | read-only audit + list/get (no mutations) |
 | `member` | member portal |
 
 Stable IDs (for curls): practice `11111111-…1111`, member `22222222-…2222`, unlinked `22222222-…2299`.
@@ -132,7 +133,7 @@ Plan: [`docs/plans/2026-11-25-wishlist-outbox-maildev.md`](docs/plans/2026-11-25
 |---------|----------|------|
 | feat-008 | **Implemented** — `GET /v1/reviewers/workload` (ops_admin; all reviewers + `open_count`) | medium |
 | feat-009 | **Implemented** — decide enqueues transactional outbox → Compose **MailDev** (SMTP 1025 / UI 1080) via `outbox-worker` | medium |
-| feat-010 | `auditor` role — read audit (no mutations) | high |
+| feat-010 | **Implemented** — `auditor` role; `AdminOrAuditor` on audit GET; read-all list/get; mutations 403 | high |
 | feat-011 | `Idempotency-Key` on `POST /v1/prior-auths` only | high |
 | feat-012 | README + `demo.sh` for the above | low |
 

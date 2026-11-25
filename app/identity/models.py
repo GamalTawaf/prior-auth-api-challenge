@@ -14,6 +14,7 @@ class UserRole(enum.StrEnum):
     reviewer = "reviewer"
     ops_admin = "ops_admin"
     member = "member"
+    auditor = "auditor"
 
 
 class User(Base):
