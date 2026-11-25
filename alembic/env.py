@@ -1,11 +1,11 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 from app.audit.models import AuditEvent  # noqa: F401
 from app.config import settings
-from app.db import Base
+from app.db import APP_SCHEMA, Base
 from app.identity.models import User  # noqa: F401
 from app.intake.models import IntakeRejection  # noqa: F401
 from app.master_data.models import (  # noqa: F401
@@ -32,6 +32,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_schemas=True,
+        version_table_schema=None,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -44,7 +46,14 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {APP_SCHEMA}"))
+        connection.commit()
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_schemas=True,
+            version_table_schema=None,
+        )
         with context.begin_transaction():
             context.run_migrations()
 
