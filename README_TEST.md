@@ -25,7 +25,7 @@ export JWT_SECRET=dev-only-change-me-32bytes-min!!   # must match Compose
 ./scripts/generate_postman_collection.py
 ```
 
-In Postman: **Import** those two files → select env **Prior Auth Local**. Env JWTs expire (~24h); after regenerating, **re-import** (or replace) so bodies, Tests scripts, and tokens stay in sync.
+In Postman: **Import** those two files → select env **Prior Auth Local**. After regenerating, **re-import** (or replace) so bodies, Tests scripts, and tokens stay in sync. CI/pre-commit fails if committed JSON ≠ a fresh generate.
 
 Tests scripts auto-set `request_id`, `procedure_id`, and `correlation_id` from responses. Submit refreshes `idempotency_key` each Send.
 

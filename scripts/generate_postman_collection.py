@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from app.clock import get_today
 from app.identity.auth import mint_token
 from app.identity.models import User, UserRole
 from app.main import app
@@ -28,6 +28,10 @@ from scripts.seed import (
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "postman"
 
+# Stable demo values so generate → commit → check is a byte-for-byte file compare.
+_DEMO_DATE_OF_SERVICE = "2026-01-15"
+_POSTMAN_TOKEN_EXP = datetime(2099, 1, 1, tzinfo=UTC)
+
 _PATH_PARAM = re.compile(r"\{([^}/]+)\}")
 
 # Ready-to-send demo payloads. Env vars are prefilled from seed; paste ids after submit.
@@ -35,7 +39,7 @@ _DEMO_BODIES: dict[tuple[str, str], dict[str, Any]] = {
     ("post", "/v1/prior-auths"): {
         "member_id": "{{member_id}}",
         "diagnosis_icd10": "J06.9",
-        "date_of_service": get_today().isoformat(),
+        "date_of_service": _DEMO_DATE_OF_SERVICE,
         "clinical_note": "Demo clinical note for Postman",
         "procedures": [{"code": "99213", "units": 1}],
     },
@@ -228,9 +232,9 @@ def _example_from_schema(schema: dict[str, Any], components: dict[str, Any]) -> 
         if fmt == "uuid":
             return str(MEMBER_ID)
         if fmt == "date":
-            return get_today().isoformat()
+            return _DEMO_DATE_OF_SERVICE
         if fmt == "date-time":
-            return f"{get_today().isoformat()}T12:00:00Z"
+            return f"{_DEMO_DATE_OF_SERVICE}T12:00:00Z"
         return "string"
     if schema_type == "integer":
         return 1
@@ -429,7 +433,9 @@ def main() -> None:
         },
     ]
     for key, user in users.items():
-        env_values.append({"key": key, "value": mint_token(user), "enabled": True})
+        env_values.append(
+            {"key": key, "value": mint_token(user, exp=_POSTMAN_TOKEN_EXP), "enabled": True}
+        )
 
     environment = {
         "id": "prior-auth-local",

@@ -43,7 +43,7 @@
         "description": "Optional `Idempotency-Key` (unique per practice): same key + same body replays the stored 201; same key + different body \u2192 409 `idempotency_key_reuse`. Keys are retained ~24h (prune optional).",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"member_id\": \"{{member_id}}\",\n  \"diagnosis_icd10\": \"J06.9\",\n  \"date_of_service\": \"2026-11-26\",\n  \"clinical_note\": \"Demo clinical note for Postman\",\n  \"procedures\": [\n    {\n      \"code\": \"99213\",\n      \"units\": 1\n    }\n  ]\n}",
+          "raw": "{\n  \"member_id\": \"{{member_id}}\",\n  \"diagnosis_icd10\": \"J06.9\",\n  \"date_of_service\": \"2026-01-15\",\n  \"clinical_note\": \"Demo clinical note for Postman\",\n  \"procedures\": [\n    {\n      \"code\": \"99213\",\n      \"units\": 1\n    }\n  ]\n}",
           "options": {
             "raw": {
               "language": "json"

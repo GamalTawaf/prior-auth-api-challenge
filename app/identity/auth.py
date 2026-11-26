@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import jwt
@@ -17,16 +18,14 @@ from app.identity.schemas import UserContext
 bearer = HTTPBearer(auto_error=False)
 
 
-def mint_token(user: User, *, hours: int = 24) -> str:
-    from datetime import UTC, datetime, timedelta
-
+def mint_token(user: User, *, hours: int = 24, exp: datetime | None = None) -> str:
     payload = {
         "sub": str(user.id),
         "role": user.role.value,
         "practice_id": str(user.practice_id) if user.practice_id else None,
         "member_id": str(user.member_id) if user.member_id else None,
         "email": user.email,
-        "exp": datetime.now(UTC) + timedelta(hours=hours),
+        "exp": exp if exp is not None else datetime.now(UTC) + timedelta(hours=hours),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 

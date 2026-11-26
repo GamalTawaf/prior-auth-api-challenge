@@ -284,7 +284,7 @@ export JWT_SECRET=dev-only-change-me-32bytes-min!!   # must match Compose
 # or: uv run python scripts/generate_postman_collection.py
 ```
 
-Import both files in Postman (re-import after regenerating). Env JWTs expire (~24h) — re-run the script for fresh tokens. Each request has a role token, demo body, and Tests scripts that write `request_id` / `procedure_id` / `correlation_id` from the response — Submit → Claim → Decide with no manual paste. Submit also refreshes `idempotency_key` on each Send.
+Import both files in Postman (re-import after regenerating). Env JWTs use a fixed long-lived `exp` for stable generate/check; they still require `JWT_SECRET` to match Compose. Each request has a role token, demo body, and Tests scripts that write `request_id` / `procedure_id` / `correlation_id` from the response — Submit → Claim → Decide with no manual paste. Submit also refreshes `idempotency_key` on each Send. Pre-commit/CI byte-compares these files to a fresh generate.
 
 Manual walkthrough: [`README_TEST.md`](README_TEST.md).
 
