@@ -9,6 +9,7 @@ from app.outbox.models import OutboxEvent, OutboxStatus
 from app.outbox.services import (
     process_batch,
     render_decision_notice_body,
+    render_decision_notice_subject,
 )
 from app.outbox.worker import main, run_loop, run_once
 from app.prior_auth.models import PriorAuthRequest
@@ -47,16 +48,20 @@ def test_decide_enqueues_pending_outbox(client: TestClient, db: Session):
     assert event.status == OutboxStatus.pending
     assert event.attempts == 0
     assert event.payload["to"] == client.seed["practice"].notification_email
-    assert str(body["id"]) in event.payload["subject"]
+    member_ext = client.seed["member"].external_id
+    assert "Prior authorization decided" in event.payload["subject"]
+    assert member_ext in event.payload["subject"]
+    assert str(body["id"]) not in event.payload["subject"]
     email_body = event.payload["body"]
     assert "secret note" not in email_body
     assert "Not medically necessary" not in email_body
     assert "clinical_note" not in email_body
     assert "denial_reason" not in email_body
-    assert "approved" in email_body
-    assert "denied" in email_body
-    member_ext = client.seed["member"].external_id
+    assert "Approved" in email_body
+    assert "Denied" in email_body
     assert member_ext in email_body
+    assert str(body["id"]) in email_body
+    assert "A reviewer has decided" in email_body
 
 
 def test_worker_mocked_send_marks_sent(client: TestClient, db: Session):
@@ -131,9 +136,12 @@ def test_render_body_uses_member_id_when_no_member():
     proc.code = "99213"
     proc.decision.value = "approved"
     request.procedures = [proc]
+    subject = render_decision_notice_subject(request, None)
     text = render_decision_notice_body(request, None)
+    assert subject == "Prior authorization decided for member mid"
     assert "Member: mid" in text
-    assert "99213: approved" in text
+    assert "• 99213 — Approved" in text
+    assert "Clinical notes and denial reasons are not included" in text
 
 
 def test_run_loop_once(monkeypatch: pytest.MonkeyPatch):
