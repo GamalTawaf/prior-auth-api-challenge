@@ -10,7 +10,7 @@ description: >-
 ## Read (in order)
 
 1. `AGENTS.md` (status + working rules)
-2. `harness/session-handoff.md` (system snapshot)
+2. `.agent/session-handoff.md` (system snapshot)
 3. README Decisions only if touching domain behavior
 4. Full `docs/plans/*` **only** when changing design or reopening shipped scope
 

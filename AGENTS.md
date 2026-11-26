@@ -4,17 +4,17 @@ Prior Authorization API take-home (Oxbridge Health). Durable Python + PostgreSQL
 
 ## Status
 
-**Complete.** Features feat-001…012 in `harness/feature_list.json` are `done` (core + wishlist). Do not invent new product scope unless the user asks. Prefer surgical fixes and walkthrough readiness over new features.
+**Complete.** Features feat-001…012 in `.agent/feature_list.json` are `done` (core + wishlist). Do not invent new product scope unless the user asks. Prefer surgical fixes and walkthrough readiness over new features.
 
 ## Startup
 
 1. `pwd` → repo root; load skill `.agent/skills/session-start` when beginning a session
 2. Read this file, `CLAUDE.md`, and README Decisions (domain changes only)
 3. `./init.sh` (repair baseline before any new work)
-4. `harness/session-handoff.md` for current system snapshot
+4. `.agent/session-handoff.md` for current system snapshot
 5. Plans are historical: `docs/plans/2026-11-24-prior-auth-api.md`, `docs/plans/2026-11-25-wishlist-outbox-maildev.md` (**shipped**)
 
-**Shared agent tree:** `.agent/` (rules + skills). Cursor auto-loads the same files via symlinks under `.cursor/`.
+**Shared agent tree:** `.agent/` (inventory, handoff, rules, skills). Cursor auto-loads rules/skills via symlinks under `.cursor/`.
 
 **On-demand skills:** `.agent/skills/{session-start,open-pr,grit-parallel,stacked-prs}/`
 
@@ -23,7 +23,7 @@ Prior Authorization API take-home (Oxbridge Health). Durable Python + PostgreSQL
 - **Ponytail full + Karpathy** — YAGNI, surgical diffs, every step has a verify check
 - **No noise comments** — comment only when *why* is invisible
 - **Tests = user flow** — real HTTP; mock only DB/external boundaries; never mock routers/services/schemas/RBAC. Claim race + DB CHECKs use real Postgres
-- **Verification** — `./scripts/gates.sh` (and feature verify) before claiming done; update `harness/progress.md` / handoff if state changes
+- **Verification** — `./scripts/gates.sh` (and feature verify) before claiming done; update `.agent/progress.md` / handoff if state changes
 - **Versions** — Python 3.15 + Postgres 19; latest stable PyPI (no alphas/RCs; OTel instrumentations may be `0.xbY`). `uv` only: prod in `[project].dependencies`, test/lint in `[dependency-groups] dev`
 - **Never cut** — audit, RBAC, validation, plan-required tooling (uv, OTel, multi-stage Docker, mutmut, CI)
 - **Parallel agents → grit** — if 2+ agents may edit overlapping code, use [grit](https://github.com/rtk-ai/grit): `grit claim` → work only in `.grit/worktrees/<agent>/` → `grit done`. Reindex with `./scripts/grit_reindex.sh` after big tree changes (parks `.worktrees` / `.venv` / `mutants` — grit does not skip those top-level dirs). Single-agent / non-overlapping work: plain branch + PR is enough. **Alembic:** serialize migration heads even under grit (AST locks do not merge graphs). Main checkout must be clean before `grit done`.
@@ -56,8 +56,7 @@ Mirrored in `.agent/rules/coding-gates.mdc`.
 ```
 .                         # entrypoints + runtime project files only
 ├── AGENTS.md / CLAUDE.md / init.sh
-├── .agent/               # portable rules + skills (Cursor: `.cursor/` symlinks)
-├── harness/              # feature_list + progress + session-handoff (complete)
+├── .agent/               # inventory, handoff, rules, skills (Cursor: `.cursor/` symlinks)
 ├── docs/plans/           # historical implementation plans (shipped)
 ├── app/
 │   ├── shared/           # errors, deps
@@ -74,10 +73,10 @@ Mirrored in `.agent/rules/coding-gates.mdc`.
 
 | Path | Role |
 |------|------|
-| `.agent/` | Portable rules + skills (any agent); Cursor via `.cursor/` symlinks |
-| `harness/feature_list.json` | Shipped feature inventory + evidence |
-| `harness/progress.md` | Compact shipped log |
-| `harness/session-handoff.md` | System snapshot + walkthrough |
+| `.agent/` | Inventory, handoff, rules, skills (any agent); Cursor via `.cursor/` symlinks |
+| `.agent/feature_list.json` | Shipped feature inventory + evidence |
+| `.agent/progress.md` | Compact shipped log |
+| `.agent/session-handoff.md` | System snapshot + walkthrough |
 | `README.md` | How to run, Decisions, AI usage |
 | `./init.sh` / `./scripts/gates.sh` / `./scripts/demo.sh` | Verify + live demo |
 
@@ -102,7 +101,7 @@ Mirrored in `.agent/rules/coding-gates.mdc`.
 3. Push the branch and open a PR into `main` (`gh pr create --base main`)
 4. Merge via PR (squash/merge on GitHub) — do not `git push origin main`
 
-This applies to docs, harness, and code alike. Hotfixes are not exempt.
+This applies to docs, `.agent/`, and code alike. Hotfixes are not exempt.
 
 ### Risk lanes
 

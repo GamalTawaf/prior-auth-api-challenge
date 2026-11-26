@@ -11,16 +11,16 @@ test -f CLAUDE.md
 test -f .agent/README.md
 test -d .agent/rules
 test -d .agent/skills
-test -f harness/feature_list.json
-test -f harness/progress.md
-test -f harness/session-handoff.md
+test -f .agent/feature_list.json
+test -f .agent/progress.md
+test -f .agent/session-handoff.md
 test -f docs/plans/2026-11-24-prior-auth-api.md
 
 if [[ ! -f pyproject.toml ]]; then
   echo "=== Skeleton not created yet (no pyproject.toml) ==="
   echo "Active work: feat-001 Decisions + local skeleton"
   echo "Plan: docs/plans/2026-11-24-prior-auth-api.md"
-  echo "State: harness/feature_list.json"
+  echo "State: .agent/feature_list.json"
   echo "=== Pre-code harness OK ==="
   exit 0
 fi

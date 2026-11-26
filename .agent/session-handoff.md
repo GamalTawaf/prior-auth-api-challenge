@@ -49,4 +49,4 @@ None.
 ## Next (submission only)
 
 - Add collaborator `rgavrilov5` when submitting the challenge
-- Prefer defending product code (claim race, redaction, audit, outbox) over harness/tooling in the live session
+- Prefer defending product code (claim race, redaction, audit, outbox) over agent tooling in the live session
