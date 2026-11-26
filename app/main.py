@@ -76,6 +76,22 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+_HTTP_METHODS = ("get", "post", "put", "patch", "delete", "head", "options")
+
+
+def _annotate_openapi_trace_headers(schema: dict) -> None:
+    paths = schema.get("paths") or {}
+    for path_item in paths.values():
+        for method in _HTTP_METHODS:
+            operation = path_item.get(method)
+            if operation is None:
+                continue
+            responses = operation.get("responses") or {}
+            for response in responses.values():
+                headers = response.setdefault("headers", {})
+                headers[TRACE_ID_HEADER] = _TRACE_ID_OPENAPI[TRACE_ID_HEADER]
+
+
 def _build_openapi() -> dict:
     from fastapi.openapi.utils import get_openapi
 
@@ -87,18 +103,7 @@ def _build_openapi() -> dict:
         description=app.description,
         routes=app.routes,
     )
-    for path_item in schema.get("paths", {}).values():
-        for operation in path_item.values():
-            if not isinstance(operation, dict):
-                continue
-            responses = operation.get("responses")
-            if not isinstance(responses, dict):
-                continue
-            for response in responses.values():
-                if not isinstance(response, dict):
-                    continue
-                headers = response.setdefault("headers", {})
-                headers[TRACE_ID_HEADER] = _TRACE_ID_OPENAPI[TRACE_ID_HEADER]
+    _annotate_openapi_trace_headers(schema)
     app.openapi_schema = schema
     return schema
 
