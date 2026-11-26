@@ -87,7 +87,7 @@ Mirrored in `.cursor/rules/coding-gates.mdc`.
 
 - Pre-commit: gates with `GATES_SKIP_TESTS=1` (full pytest still in CI / `./init.sh`)
 - Mutmut: `./scripts/run_mutmut.sh` (CI / hot-path gate; not every local init)
-- Postman: `uv run python scripts/generate_postman_collection.py` (gitignored output; do not hand-edit)
+- Postman: `./scripts/generate_postman_collection.py` (gitignored; demo bodies + Tests scripts set request_id/procedure_id; do not hand-edit)
 
 ## Pull requests — never commit to `main`
 

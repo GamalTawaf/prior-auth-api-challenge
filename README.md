@@ -239,7 +239,7 @@ Scoped via `setup.cfg`: `source_paths=app/`, `only_mutate=app/prior_auth/service
 # or: uv run python scripts/generate_postman_collection.py
 ```
 
-Writes `postman/*.json` from `app.openapi()` (not committed). Import the collection + **Prior Auth Local** environment. Each request already has a role token, path vars, and a demo JSON body (seed `member_id` / ICD / CPT). After Submit, paste `id` → `request_id` and `procedures[0].id` → `procedure_id` in the env, then Claim / Decide.
+Writes `postman/*.json` from `app.openapi()` (not committed). Import the collection + **Prior Auth Local** environment. Each request has a role token, demo body, and Tests scripts that write `request_id` / `procedure_id` / `correlation_id` from the response — Submit → Claim → Decide with no manual paste. Submit also refreshes `idempotency_key` on each Send.
 
 ## Live walkthrough
 
