@@ -1,10 +1,10 @@
 # Prior Authorization API — Implementation Plan
 
-> **For agentic workers:** Start from the **agent harness** (`AGENTS.md`, `harness/feature_list.json`, `./init.sh`). REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement one `harness/feature_list.json` item at a time. Steps use checkbox (`- [ ]`) syntax for tracking. Harness pattern: [walkinglabs/learn-harness-engineering](https://github.com/walkinglabs/learn-harness-engineering) `harness-creator`.
+> **Status: SHIPPED** (feat-001…007 core; wishlist feat-008…012 also shipped — see `2026-11-25-wishlist-outbox-maildev.md`). Historical plan. Current system: README Decisions + `harness/session-handoff.md`.
 
-**Goal:** Ship a durable Python + PostgreSQL prior-auth backend a teammate would inherit, defendable line-by-line in a 45-minute live walkthrough.
+**Goal (met):** Durable Python + PostgreSQL prior-auth backend a teammate would inherit, defendable line-by-line in a 45-minute live walkthrough.
 
-**Architecture:** Single FastAPI app with **domain packages** (`identity`, `master_data`, `prior_auth`, `intake`, `audit`, `shared`) and one resource-oriented `/v1` surface. Rules live in domain services; audit in the same DB transaction as state changes; role-specific response schemas enforce redaction. Observability via OpenTelemetry. Tooling: `uv` (prod/dev split), multi-stage Docker, CI (build no push) + pytest + mutmut.
+**Architecture:** Single FastAPI app with **domain packages** (`identity`, `master_data`, `prior_auth`, `intake`, `audit`, `outbox`, `shared`) and one resource-oriented `/v1` surface. Rules live in domain services; audit in the same DB transaction as state changes; role-specific response schemas enforce redaction. Observability via OpenTelemetry. Tooling: `uv` (prod/dev split), multi-stage Docker, CI (build no push) + pytest + mutmut.
 
 **Tech Stack:** Python **3.15** + PostgreSQL **19** + **latest stable** library releases (see Version policy). FastAPI, SQLAlchemy 2, Alembic, Pydantic v2, PyJWT, OpenTelemetry, `uv`, multi-stage Docker, Compose, pytest+httpx, mutmut, GitHub Actions.
 
@@ -66,8 +66,8 @@ Stop at the first rung that holds: YAGNI → stdlib/platform → installed dep �
 - Docker: **multi-stage** on `python:3.15.2-slim` (or newer 3.15.x-slim); Compose = API + `postgres:19`.
 - CI: GitHub Actions builds image (**no registry push**) and runs tests (pytest + mutmut).
 - Synthetic data only; no real PHI.
-- No outbox / notification wishlist / Idempotency-Key in MVP (deferred to wishlist stretch — see `docs/plans/2026-11-25-wishlist-outbox-maildev.md`, feat-008…012).
-- No GraphQL, event bus, microservices split, real IdP, appeals, retro review, CRUD UIs, AWS deploy.
+- MVP cut list deferred items are **shipped** in the wishlist stretch (`docs/plans/2026-11-25-wishlist-outbox-maildev.md`: outbox→MailDev, workload, auditor, Idempotency-Key).
+- Still out of scope: GraphQL, event bus, microservices split, real IdP, appeals, retro review, CRUD UIs, AWS deploy, real SES/SendGrid.
 - Timezone: DOS stored as `date`; “today” evaluated in **`America/New_York`** (`clock.py`).
 - Units > 30 → **hard validation error** (document: “almost always a typo”).
 - Member responses never include clinical note or denial/reviewer reasoning.
@@ -296,7 +296,7 @@ Base: `/v1` · Auth: `Authorization: Bearer <token>`
 ### Office support (own practice)
 - `GET /v1/support/intake-rejections/{correlation_id}` — practice-scoped
 
-**Explicitly not in MVP** (wishlist stretch plan `2026-11-25-wishlist-outbox-maildev.md`): notify-on-decision (outbox→MailDev), reviewer workload, Idempotency-Key, auditor role.
+**Deferred from MVP, later shipped** (wishlist plan `2026-11-25-wishlist-outbox-maildev.md`): notify-on-decision (outbox→MailDev), reviewer workload, Idempotency-Key, auditor role.
 
 ---
 
@@ -664,27 +664,23 @@ Scan result: no existing Postman generator script — **build it in Task 6 / fea
 
 ---
 
-## Agent harness (generated)
+## Agent harness (complete)
 
 | Subsystem | Artifact |
 |-----------|----------|
 | Instructions | `AGENTS.md` + `CLAUDE.md` (repo root) |
-| State | `harness/feature_list.json`, `harness/progress.md` |
-| Verification | `./init.sh` (stage-aware) |
-| Scope | one feature at a time + dependencies in `harness/feature_list.json` |
-| Lifecycle | `harness/session-handoff.md` |
+| Inventory | `harness/feature_list.json` (all `done`) |
+| Snapshot | `harness/session-handoff.md`, `harness/progress.md` |
+| Verification | `./init.sh`, `./scripts/gates.sh`, `./scripts/demo.sh` |
+| Plans | `docs/plans/` (historical; shipped) |
+| Council | `docs/council/` (planning notes for README “How AI was used”) |
 
-Report: `docs/harness/harness-assessment.html`  
-Plan: `docs/plans/2026-11-24-prior-auth-api.md`  
-Council: `docs/council/`
+Feature IDs: feat-001…007 ↔ MVP tasks; feat-008…012 ↔ wishlist (also shipped).
 
-Feature IDs map to plan tasks: feat-001…007 ↔ Task 1…7.
+## Submission
 
-## Immediate next steps
-
-1. **Now:** `./init.sh` then feat-001 — decisions page + local `uv`/Compose skeleton (no remote repo required).
-2. Then feat-002 → … → feat-007 in dependency order; wishlist stretch feat-008…012 per `docs/plans/2026-11-25-wishlist-outbox-maildev.md` (one worktree/agent per feature, stacked); update `harness/progress.md` / handoff each session.
-3. When ready to submit: create private repo from template, push, add collaborator `rgavrilov5`.
+1. `./init.sh` + `./scripts/demo.sh` green
+2. Private template copy / push; add collaborator `rgavrilov5`
 
 ---
 
