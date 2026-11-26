@@ -2,6 +2,18 @@
 
 Durable Python + PostgreSQL prior-auth backend (Oxbridge Health take-home). Domain packages, one `/v1` surface, audit in the same transaction as state changes, role-scoped response schemas.
 
+## Who this is for
+
+API roles are named for how people talk about the work:
+
+| In the API | In plain language |
+|------------|-------------------|
+| **Members** | Our patients |
+| **Provider offices** | Doctors' offices submitting requests for their patients |
+| **Reviewers** | Our nurses and physicians who decide requests |
+| **Operations admins** | The people who keep the work moving (reassign, workload) |
+| **Auditors** | Read-only compliance viewers (audit trail; no mutations) |
+
 ## How to run
 
 ```bash
@@ -23,14 +35,14 @@ Observability (Compose): Grafana LGTM at [http://localhost:3000](http://localhos
 
 `uv run python scripts/seed.py` prints Bearer JWTs for:
 
-| Role key | Use |
-|----------|-----|
-| `office` | provider office (practice Riverside Clinic) |
-| `reviewer` | clean reviewer |
-| `reviewer_coi` | reviewer with COI on seeded member |
-| `admin` | ops admin |
-| `auditor` | read-only audit + list/get (no mutations) |
-| `member` | member portal |
+| Role key | Person |
+|----------|--------|
+| `office` | Provider office (seed practice: Riverside Clinic) |
+| `reviewer` | Reviewer (nurse/physician) without COI on the seed member |
+| `reviewer_coi` | Reviewer with a COI edge to the seed member |
+| `admin` | Operations admin |
+| `auditor` | Auditor (read-only) |
+| `member` | Member (patient) portal |
 
 Stable IDs (for curls): practice `11111111-…1111`, member `22222222-…2222`, unlinked `22222222-…2299`.
 
@@ -304,6 +316,18 @@ Covers: failed submit → support → happy submit → **Idempotency-Key replay*
 - Implementation: Cursor agents against those plans (TDD, surgical diffs). Humans kept Decisions, cut list, and race/audit/redaction invariants.
 - Wrong turns fixed: uv only offered Python 3.15 beta → pin Homebrew/Docker **3.15.2**; install uv onto `python:3.15.2-slim` (no official uv image); mutmut 3 needs `source_paths=app/` with `only_mutate` on services.
 - Tests are outside-in HTTP (except persistence-truth claim race + DB CHECK).
+
+### Extras that AI made cheap to ship
+
+Beyond the core prior-auth rules, this submission includes an **AI-oriented harness and production-shaped seams** that used to be “nice but expensive.” With agents, those steps are much less time-consuming, so the build can carry them for the value they add without eating the schedule:
+
+- **Agent harness** — `AGENTS.md` / `CLAUDE.md`, Cursor rules, `harness/` feature list + session handoff, so humans and agents share the same operating contract
+- **CI/CD** — path-filtered required checks, lint/test/mutate/image as callable workflows, Postman freshness gate, branch protection as code
+- **OpenTelemetry** — FastAPI + SQLAlchemy + logging + manual `smtp.send` spans; Compose → Grafana LGTM (Tempo / Prometheus / Loki)
+- **Partner kit** — live OpenAPI, generated Postman collection/env, `README_TEST.md` walkthrough
+- **Quality bar** — 100% coverage, mutmut on hot services, coding gates on every commit
+
+The repo is also shaped so **AI agents can coordinate**: durable plans, risk-lane PR labels, gates that fail loudly, and docs that name the people in the system (not only role enums).
 
 ## Design notes
 
