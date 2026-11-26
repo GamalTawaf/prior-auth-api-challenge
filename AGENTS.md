@@ -86,7 +86,18 @@ Mirrored in `.cursor/rules/coding-gates.mdc`.
 - Mutmut: `./scripts/run_mutmut.sh` (CI / hot-path gate; not every local init)
 - Postman: `uv run python scripts/generate_postman_collection.py` (gitignored output; do not hand-edit)
 
-## Pull requests — risk lanes
+## Pull requests — never commit to `main`
+
+**No direct commits or pushes to `main`.** Always:
+
+1. Branch from latest `main` (`git fetch origin && git checkout -b <branch> origin/main`)
+2. Commit on that branch only
+3. Push the branch and open a PR into `main` (`gh pr create --base main`)
+4. Merge via PR (squash/merge on GitHub) — do not `git push origin main`
+
+This applies to docs, harness, and code alike. Hotfixes are not exempt.
+
+### Risk lanes
 
 Exactly one label: `low` | `medium` | `high`. See `.cursor/rules/pr-lanes.mdc`.
 
