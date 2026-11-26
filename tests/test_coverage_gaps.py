@@ -260,6 +260,7 @@ def test_telemetry_otlp_and_counters(monkeypatch):
         tel.setup_telemetry(app)
     assert instrumented
     assert "engine" in instrumented[0]
+    assert instrumented[0].get("skip_dep_check") is True
     tel.record_claim_conflict()
     tel.record_intake_rejection()
     tel._claim_conflict_counter = None
