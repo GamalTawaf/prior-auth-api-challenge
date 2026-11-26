@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 
 from app.audit.router import router as audit_router
@@ -15,6 +15,7 @@ from app.shared.errors import (
     bad_request_handler,
     conflict_handler,
     forbidden_handler,
+    http_exception_handler,
     not_found_handler,
     request_validation_handler,
     validation_failure_handler,
@@ -50,6 +51,7 @@ app.add_exception_handler(BadRequestError, bad_request_handler)
 app.add_exception_handler(ConflictError, conflict_handler)
 app.add_exception_handler(NotFoundError, not_found_handler)
 app.add_exception_handler(ForbiddenError, forbidden_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
 
 app.include_router(prior_auth_router)
 app.include_router(intake_router)
