@@ -272,12 +272,20 @@ Scoped via `setup.cfg`: `source_paths=app/`, `only_mutate=app/prior_auth/service
 
 ## Postman
 
+Tracked (regenerate after OpenAPI / seed / JWT changes):
+
+- [Collection](postman/Prior_Auth_API.postman_collection.json)
+- [Environment](postman/Prior_Auth_API.postman_environment.json) (**Prior Auth Local**)
+
 ```bash
+export JWT_SECRET=dev-only-change-me-32bytes-min!!   # must match Compose
 ./scripts/generate_postman_collection.py
 # or: uv run python scripts/generate_postman_collection.py
 ```
 
-Writes `postman/*.json` from `app.openapi()` (not committed). Import the collection + **Prior Auth Local** environment. Each request has a role token, demo body, and Tests scripts that write `request_id` / `procedure_id` / `correlation_id` from the response — Submit → Claim → Decide with no manual paste. Submit also refreshes `idempotency_key` on each Send.
+Import both files in Postman (re-import after regenerating). Env JWTs expire (~24h) — re-run the script for fresh tokens. Each request has a role token, demo body, and Tests scripts that write `request_id` / `procedure_id` / `correlation_id` from the response — Submit → Claim → Decide with no manual paste. Submit also refreshes `idempotency_key` on each Send.
+
+Manual walkthrough: [`README_TEST.md`](README_TEST.md).
 
 ## Live walkthrough
 

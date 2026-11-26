@@ -15,14 +15,17 @@ Health: http://localhost:8000/v1/health
 
 ## 2. Generate + import Postman
 
+Latest generated files in the repo (also safe to regenerate):
+
+- [postman/Prior_Auth_API.postman_collection.json](postman/Prior_Auth_API.postman_collection.json)
+- [postman/Prior_Auth_API.postman_environment.json](postman/Prior_Auth_API.postman_environment.json)
+
 ```bash
 export JWT_SECRET=dev-only-change-me-32bytes-min!!   # must match Compose
 ./scripts/generate_postman_collection.py
 ```
 
-In Postman: **Import** → `postman/Prior_Auth_API.postman_collection.json` and `postman/Prior_Auth_API.postman_environment.json` → select env **Prior Auth Local**.
-
-If you change the generator or seed tokens, re-run the script and **re-import** (or replace) both files so bodies, Tests scripts, and JWTs stay in sync.
+In Postman: **Import** those two files → select env **Prior Auth Local**. Env JWTs expire (~24h); after regenerating, **re-import** (or replace) so bodies, Tests scripts, and tokens stay in sync.
 
 Tests scripts auto-set `request_id`, `procedure_id`, and `correlation_id` from responses. Submit refreshes `idempotency_key` each Send.
 
