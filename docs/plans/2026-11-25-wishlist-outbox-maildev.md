@@ -267,8 +267,8 @@ Postgres enum alter: use `ALTER TYPE … ADD VALUE` in a migration that does not
 
 ## Definition of done (epic)
 
-- [ ] All four behaviors live; cut list updated
-- [ ] `./scripts/gates.sh` green; compose includes MailDev + worker
-- [ ] `./scripts/demo.sh` shows decide → MailDev message
-- [ ] Evidence in `harness/feature_list.json` + `progress.md`
-- [ ] PRs labeled per lane (prefer four small PRs over one high blob)
+- [x] All four behaviors live; cut list updated
+- [x] `./scripts/gates.sh` green; compose includes MailDev + worker
+- [x] `./scripts/demo.sh` shows decide → MailDev message
+- [x] Evidence in `harness/feature_list.json` + `progress.md`
+- [ ] PRs labeled per lane (prefer four small PRs over one high blob) — parent / merge time

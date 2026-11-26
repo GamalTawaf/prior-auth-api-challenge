@@ -104,8 +104,8 @@
       "name": "Wishlist docs + demo",
       "description": "README Decisions: remove wishlist from cut list; document MailDev UI, workload, auditor, Idempotency-Key; extend demo.sh; session-handoff. Lane: low.",
       "dependencies": ["feat-011"],
-      "status": "pending",
-      "evidence": "",
+      "status": "done",
+      "evidence": "README Decisions: cut list excludes wishlist; workload/MailDev/auditor/Idempotency-Key (~24h) documented; ./scripts/demo.sh complete (idempotency replay OK, second_claim=409, workload, coi=403, MailDev notice, auditor audit OK, member redaction OK); session-handoff walkthrough updated; ./scripts/gates.sh green",
       "verify": "./scripts/demo.sh"
     }
   ]
