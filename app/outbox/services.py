@@ -21,21 +21,22 @@ def _procedure_sequence(proc: PriorAuthProcedure) -> int:
     return proc.sequence
 
 
-def _member_ref(request: PriorAuthRequest, member: Member | None) -> str:
-    if member is not None:
-        return member.external_id
-    return str(request.member_id)
+def _patient_label(request: PriorAuthRequest, member: Member | None) -> str:
+    """Office-facing patient line: full name when known, plus external id / uuid."""
+    if member is None:
+        return str(request.member_id)
+    return f"{member.full_name} ({member.external_id})"
 
 
 def render_decision_notice_subject(request: PriorAuthRequest, member: Member | None) -> str:
     # Office-facing email: say "patient", not the API role name "member".
-    patient_ref = _member_ref(request, member)
+    label = _patient_label(request, member)
     patient = UserRole.member.people_name
-    return f"Prior authorization decided for {patient} {patient_ref}"
+    return f"Prior authorization decided for {patient} {label}"
 
 
 def render_decision_notice_body(request: PriorAuthRequest, member: Member | None) -> str:
-    patient_ref = _member_ref(request, member)
+    label = _patient_label(request, member)
     patient = UserRole.member.people_name
     reviewer = UserRole.reviewer.people_name
     office = UserRole.provider_office.people_name
@@ -45,7 +46,7 @@ def render_decision_notice_body(request: PriorAuthRequest, member: Member | None
         "",
         f"A {reviewer} has decided a prior authorization for your {office}.",
         "",
-        f"{patient.capitalize()}: {patient_ref}",
+        f"{patient.capitalize()}: {label}",
         f"Date of service: {dos}",
         f"Request ID: {request.uuid}",
         "",
