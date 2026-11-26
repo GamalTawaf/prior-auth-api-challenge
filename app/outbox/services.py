@@ -10,23 +10,53 @@ from app.outbox.mailer import send_smtp
 from app.outbox.models import OutboxEvent, OutboxKind, OutboxStatus
 from app.prior_auth.models import PriorAuthProcedure, PriorAuthRequest
 
+_DECISION_LABEL = {
+    "approved": "Approved",
+    "denied": "Denied",
+}
+
 
 def _procedure_sequence(proc: PriorAuthProcedure) -> int:
     return proc.sequence
 
 
+def _member_ref(request: PriorAuthRequest, member: Member | None) -> str:
+    if member is not None:
+        return member.external_id
+    return str(request.member_id)
+
+
+def render_decision_notice_subject(request: PriorAuthRequest, member: Member | None) -> str:
+    member_ref = _member_ref(request, member)
+    return f"Prior authorization decided for member {member_ref}"
+
+
 def render_decision_notice_body(request: PriorAuthRequest, member: Member | None) -> str:
-    member_ref = member.external_id if member is not None else str(request.member_id)
+    member_ref = _member_ref(request, member)
+    dos = request.date_of_service.isoformat()
     lines = [
-        f"Request ID: {request.id}",
+        "Hello,",
+        "",
+        "A reviewer has decided a prior authorization for your practice.",
+        "",
         f"Member: {member_ref}",
-        f"Date of service: {request.date_of_service.isoformat()}",
-        "Procedures:",
+        f"Date of service: {dos}",
+        f"Request ID: {request.id}",
+        "",
+        "Outcomes:",
     ]
     ordered = list(request.procedures)
     ordered.sort(key=_procedure_sequence)
     for proc in ordered:
-        lines.append(f"  {proc.code}: {proc.decision.value}")
+        decision_value = proc.decision.value
+        label = _DECISION_LABEL.get(decision_value, decision_value)
+        lines.append(f"  • {proc.code} — {label}")
+    lines.extend(
+        [
+            "",
+            "Clinical notes and denial reasons are not included in this message.",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -35,7 +65,7 @@ def enqueue_decision_notice(db: Session, request: PriorAuthRequest) -> OutboxEve
     member = db.get(Member, request.member_id)
     assert practice is not None
     to_addr = practice.notification_email
-    subject = f"Prior auth decision — {request.id}"
+    subject = render_decision_notice_subject(request, member)
     body = render_decision_notice_body(request, member)
     event = OutboxEvent(
         kind=OutboxKind.decision_notice,

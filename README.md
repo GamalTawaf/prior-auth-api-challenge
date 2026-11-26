@@ -168,9 +168,10 @@ show up).
 
 `decide` writes an `outbox_events` row in the **same DB transaction** as the decision +
 audit. Compose `outbox-worker` polls and SMTP-sends to **MailDev** (`SMTP 1025`, UI
-[http://localhost:1080](http://localhost:1080)). To: `practices.notification_email`. Body
-is thin (request id / member / DOS / procedure outcomes) — no `clinical_note` or
-`denial_reason` text. API never opens SMTP.
+[http://localhost:1080](http://localhost:1080)). To: `practices.notification_email`.
+Subject names the member; body is a short office-facing note (member / DOS / request id /
+procedure outcomes as Approved|Denied) — no `clinical_note` or `denial_reason` text. API
+never opens SMTP.
 
 ```bash
 docker compose up -d db maildev otel-lgtm api outbox-worker
