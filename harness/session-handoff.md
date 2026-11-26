@@ -23,8 +23,9 @@ Plans (historical): `docs/plans/2026-11-24-prior-auth-api.md`, `docs/plans/2026-
 ## Agent ops (keep short)
 
 - Prefer README Decisions + this handoff over re-reading full plans unless changing design.
-- **Parallel work:** use grit (`grit claim` → `.grit/worktrees/<agent>/` → `grit done`); `./scripts/grit_reindex.sh` after big tree changes. Serialize Alembic heads. See `AGENTS.md` § Working rules.
-- Still never commit to `main` — branch + PR only.
+- **Parallel work:** grit + `./scripts/grit_reindex.sh`; serialize Alembic. Skill: `.cursor/skills/grit-parallel`.
+- Never commit to `main` — branch + PR. Skills: `.cursor/skills/open-pr`, `.cursor/skills/stacked-prs`.
+- Sync `origin/main` before starting work (rule: `git-sync-before-work`).
 
 ## Walkthrough
 

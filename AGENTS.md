@@ -8,11 +8,13 @@ Prior Authorization API take-home (Oxbridge Health). Durable Python + PostgreSQL
 
 ## Startup
 
-1. `pwd` → repo root
-2. Read this file, `CLAUDE.md`, and README Decisions
+1. `pwd` → repo root; load skill `.cursor/skills/session-start` when beginning a session
+2. Read this file, `CLAUDE.md`, and README Decisions (domain changes only)
 3. `./init.sh` (repair baseline before any new work)
 4. `harness/session-handoff.md` for current system snapshot
 5. Plans are historical: `docs/plans/2026-11-24-prior-auth-api.md`, `docs/plans/2026-11-25-wishlist-outbox-maildev.md` (**shipped**)
+
+**On-demand skills:** `.cursor/skills/{session-start,open-pr,grit-parallel,stacked-prs}/`
 
 ## Working rules
 
