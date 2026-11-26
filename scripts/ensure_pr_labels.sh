@@ -14,6 +14,6 @@ ensure() {
   echo "label created: ${name}"
 }
 
-ensure "low" "0E8A16" "No system behavior change (docs, harness, tooling-only)"
+ensure "low" "0E8A16" "No system behavior change (docs, .agent, tooling-only)"
 ensure "medium" "FBCA04" "Backward-compatible contract change (additive response/API)"
 ensure "high" "D93F0B" "Behavior/logic change in main components (may break callers)"

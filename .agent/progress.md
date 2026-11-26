@@ -2,7 +2,7 @@
 
 ## Shipped (2026-11-26)
 
-All `harness/feature_list.json` items **done** (feat-001…012).
+All `.agent/feature_list.json` items **done** (feat-001…012).
 
 | Slice | What’s in the tree |
 |-------|--------------------|
@@ -12,7 +12,7 @@ All `harness/feature_list.json` items **done** (feat-001…012).
 
 **Verify:** `./init.sh` · `./scripts/gates.sh` · `./scripts/demo.sh`
 
-**Handoff:** `harness/session-handoff.md` (system complete — no next feature).
+**Handoff:** `.agent/session-handoff.md` (system complete — no next feature).
 
 ## Earlier session log (condensed)
 

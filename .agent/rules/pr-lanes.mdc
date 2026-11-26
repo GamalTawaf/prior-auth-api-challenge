@@ -5,7 +5,7 @@ alwaysApply: true
 
 # PR lanes (required)
 
-**Never commit or push directly to `main`.** Branch from latest `main`, push the branch, open a PR (`gh pr create --base main`), merge via GitHub. Docs/harness/code and hotfixes are not exempt.
+**Never commit or push directly to `main`.** Branch from latest `main`, push the branch, open a PR (`gh pr create --base main`), merge via GitHub. Docs/`.agent`/code and hotfixes are not exempt.
 
 Every PR **must** be classified into exactly one lane and labeled on GitHub: `low`, `medium`, or `high`.
 
@@ -13,7 +13,7 @@ Every PR **must** be classified into exactly one lane and labeled on GitHub: `lo
 
 | Lane | Label | What belongs here |
 |------|-------|-------------------|
-| **Low** | `low` | No system behavior change: docs (`*.md`), harness, plans, comments, formatting-only, lockfile/tooling config with no runtime effect (`pyproject.toml` / `uv.lock` / CI YAML that only renames steps, Postman regen with same contract). |
+| **Low** | `low` | No system behavior change: docs (`*.md`), `.agent/`, plans, comments, formatting-only, lockfile/tooling config with no runtime effect (`pyproject.toml` / `uv.lock` / CI YAML that only renames steps, Postman regen with same contract). |
 | **Medium** | `medium` | Observable contract change that is **backward compatible**: additive response/schema fields, new optional request fields with defaults, new non-breaking endpoints, additive OpenAPI. Existing clients keep working. |
 | **High** | `high` | Behavior or logic change in main components: validation rules, status machine, claim/decide/reassign/COI/RBAC, auth, DB constraints/migrations that affect semantics, removed/renamed fields, status code changes, error_code changes, anything that can break callers or alter who wins a race. |
 

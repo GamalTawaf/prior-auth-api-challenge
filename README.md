@@ -323,7 +323,7 @@ Covers: failed submit → support → happy submit → **Idempotency-Key replay*
 
 Beyond the core prior-auth rules, this submission includes an **AI-oriented harness and production-shaped seams** that used to be “nice but expensive.” With agents, those steps are much less time-consuming, so the build can carry them for the value they add without eating the schedule:
 
-- **Agent harness** — `AGENTS.md` / `CLAUDE.md`, shared `.agent/` rules+skills (Cursor loads via `.cursor/` symlinks), `harness/` feature list + session handoff
+- **Agent harness** — `AGENTS.md` / `CLAUDE.md`, shared `.agent/` (inventory, handoff, rules, skills; Cursor loads rules/skills via `.cursor/` symlinks)
 - **CI/CD** — path-filtered required checks, lint/test/mutate/image as callable workflows, Postman freshness gate, branch protection as code
 - **OpenTelemetry** — FastAPI + SQLAlchemy + logging + manual `smtp.send` spans; Compose → Grafana LGTM (Tempo / Prometheus / Loki)
 - **Partner kit** — live OpenAPI, generated Postman collection/env, `README_TEST.md` walkthrough
