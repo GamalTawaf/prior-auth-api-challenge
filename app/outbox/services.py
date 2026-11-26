@@ -41,7 +41,7 @@ def render_decision_notice_body(request: PriorAuthRequest, member: Member | None
         "",
         f"Member: {member_ref}",
         f"Date of service: {dos}",
-        f"Request ID: {request.id}",
+        f"Request ID: {request.uuid}",
         "",
         "Outcomes:",
     ]
@@ -69,7 +69,7 @@ def enqueue_decision_notice(db: Session, request: PriorAuthRequest) -> OutboxEve
     body = render_decision_notice_body(request, member)
     event = OutboxEvent(
         kind=OutboxKind.decision_notice,
-        request_id=request.id,
+        request_id=request.uuid,
         practice_id=request.practice_id,
         payload={"to": to_addr, "subject": subject, "body": body},
         status=OutboxStatus.pending,

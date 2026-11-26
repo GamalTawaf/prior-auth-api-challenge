@@ -19,7 +19,7 @@ def apply_after_id(
 ) -> Select[tuple[PriorAuthRequest]]:
     """Keyset page using the last seen request id (stable under inserts; no offset)."""
     created = PriorAuthRequest.created_at
-    rid = PriorAuthRequest.id
+    rid = PriorAuthRequest.uuid
     created_desc = created.desc()
     rid_desc = rid.desc()
     created_asc = created.asc()
@@ -66,7 +66,7 @@ def get_request(
     for_update: bool = False,
     load_procedures: bool = False,
 ) -> PriorAuthRequest:
-    stmt = select(PriorAuthRequest).where(PriorAuthRequest.id == request_id)
+    stmt = select(PriorAuthRequest).where(PriorAuthRequest.uuid == request_id)
     if load_procedures:
         procedures_load = selectinload(PriorAuthRequest.procedures)
         stmt = stmt.options(procedures_load)
@@ -107,7 +107,7 @@ def audit_commit_refresh(
         actor_user_id=actor_user_id,
         action=action,
         payload=payload,
-        request_id=request.id,
+        request_id=request.uuid,
     )
     db.commit()
     db.refresh(request)

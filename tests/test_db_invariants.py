@@ -19,10 +19,10 @@ from tests.conftest import approve_all_outcomes, decide_as, get_as, submit_and_c
 
 def _base_request(seed_data: dict, **overrides) -> PriorAuthRequest:
     values = {
-        "id": uuid.uuid4(),
-        "member_id": seed_data["member"].id,
-        "practice_id": seed_data["practice"].id,
-        "submitted_by_user_id": seed_data["office"].id,
+        "uuid": uuid.uuid4(),
+        "member_id": seed_data["member"].uuid,
+        "practice_id": seed_data["practice"].uuid,
+        "submitted_by_user_id": seed_data["office"].uuid,
         "diagnosis_icd10": "J06.9",
         "date_of_service": get_today(),
         "status": RequestStatus.submitted,
@@ -47,7 +47,7 @@ def test_decided_requires_timestamp_check(db: Session, seed_data: dict):
     request = _base_request(
         seed_data,
         status=RequestStatus.decided,
-        decided_by_user_id=seed_data["reviewer"].id,
+        decided_by_user_id=seed_data["reviewer"].uuid,
         decided_at=None,
     )
     db.add(request)
@@ -108,7 +108,7 @@ def test_denied_rejects_blank_reason_check(db: Session, seed_data: dict):
 
 def test_member_role_requires_member_id_check(db: Session):
     user = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"orphan-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.member,
         member_id=None,
@@ -121,7 +121,7 @@ def test_member_role_requires_member_id_check(db: Session):
 
 def test_http_decide_always_sets_decided_by(client: TestClient, db: Session):
     data = submit_and_claim(client)
-    rid = data["id"]
+    rid = data["uuid"]
     detail = get_as(client, rid, "reviewer")
     procs = detail.json()["procedures"]
     decided = decide_as(client, rid, approve_all_outcomes(procs))

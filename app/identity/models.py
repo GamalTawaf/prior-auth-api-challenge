@@ -1,5 +1,5 @@
 import enum
-import uuid
+import uuid as uuid_lib
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, String, func
@@ -10,14 +10,28 @@ from app.db import Base
 
 
 class UserRole(enum.StrEnum):
+    """API actor roles. Wire strings stay stable; see ``people_name`` for humans."""
+
     provider_office = "provider_office"
     reviewer = "reviewer"
     ops_admin = "ops_admin"
     member = "member"
     auditor = "auditor"
 
+    @property
+    def people_name(self) -> str:
+        return {
+            UserRole.provider_office: "Provider office — doctors' office submitting for patients",
+            UserRole.reviewer: "Reviewer — nurse or physician who decides requests",
+            UserRole.ops_admin: "Operations admin — keeps the work moving",
+            UserRole.member: "Member — our patient",
+            UserRole.auditor: "Auditor — read-only compliance viewer",
+        }[self]
+
 
 class User(Base):
+    """Signed-in actor (office staff, reviewer, ops, auditor, or patient portal user)."""
+
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint(
@@ -26,13 +40,15 @@ class User(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    uuid: Mapped[uuid_lib.UUID] = mapped_column(
+        "id", UUID(as_uuid=True), primary_key=True, default=uuid_lib.uuid4
+    )
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role"), nullable=False)
-    practice_id: Mapped[uuid.UUID | None] = mapped_column(
+    practice_id: Mapped[uuid_lib.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("practices.id"), nullable=True
     )
-    member_id: Mapped[uuid.UUID | None] = mapped_column(
+    member_id: Mapped[uuid_lib.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("members.id"), nullable=True
     )
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)

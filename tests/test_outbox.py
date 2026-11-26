@@ -28,21 +28,23 @@ from tests.conftest import (
 def _decide_denied(client: TestClient) -> dict:
     data = submit_and_claim(client, procedures=TWO_PROCEDURES, clinical_note="secret note")
     outcomes = [
-        {"procedure_id": data["procedures"][0]["id"], "decision": "approved"},
+        {"procedure_id": data["procedures"][0]["uuid"], "decision": "approved"},
         {
-            "procedure_id": data["procedures"][1]["id"],
+            "procedure_id": data["procedures"][1]["uuid"],
             "decision": "denied",
             "denial_reason": "Not medically necessary",
         },
     ]
-    decided = decide_as(client, data["id"], outcomes)
+    decided = decide_as(client, data["uuid"], outcomes)
     assert decided.status_code == 200, decided.text
     return decided.json()
 
 
 def test_decide_enqueues_pending_outbox(client: TestClient, db: Session):
     body = _decide_denied(client)
-    events = list(db.scalars(select(OutboxEvent).where(OutboxEvent.request_id == body["id"])).all())
+    events = list(
+        db.scalars(select(OutboxEvent).where(OutboxEvent.request_id == body["uuid"])).all()
+    )
     assert len(events) == 1
     event = events[0]
     assert event.status == OutboxStatus.pending
@@ -51,7 +53,7 @@ def test_decide_enqueues_pending_outbox(client: TestClient, db: Session):
     member_ext = client.seed["member"].external_id
     assert "Prior authorization decided" in event.payload["subject"]
     assert member_ext in event.payload["subject"]
-    assert str(body["id"]) not in event.payload["subject"]
+    assert str(body["uuid"]) not in event.payload["subject"]
     email_body = event.payload["body"]
     assert "secret note" not in email_body
     assert "Not medically necessary" not in email_body
@@ -60,7 +62,7 @@ def test_decide_enqueues_pending_outbox(client: TestClient, db: Session):
     assert "Approved" in email_body
     assert "Denied" in email_body
     assert member_ext in email_body
-    assert str(body["id"]) in email_body
+    assert str(body["uuid"]) in email_body
     assert "A reviewer has decided" in email_body
 
 
@@ -74,7 +76,7 @@ def test_worker_mocked_send_marks_sent(client: TestClient, db: Session):
     n = process_batch(db, send_fn=fake_send)
     assert n == 1
     assert len(sent) == 1
-    event = db.scalars(select(OutboxEvent).where(OutboxEvent.request_id == body["id"])).one()
+    event = db.scalars(select(OutboxEvent).where(OutboxEvent.request_id == body["uuid"])).one()
     assert event.status == OutboxStatus.sent
     assert event.attempts == 1
     assert event.sent_at is not None
@@ -89,7 +91,7 @@ def test_worker_send_failure_bumps_attempts(client: TestClient, db: Session):
 
     n = process_batch(db, send_fn=boom)
     assert n == 1
-    event = db.scalars(select(OutboxEvent).where(OutboxEvent.request_id == body["id"])).one()
+    event = db.scalars(select(OutboxEvent).where(OutboxEvent.request_id == body["uuid"])).one()
     assert event.status == OutboxStatus.failed
     assert event.attempts == 1
     assert "smtp down" in (event.last_error or "")
@@ -151,7 +153,7 @@ def test_send_smtp_records_error_on_span(monkeypatch: pytest.MonkeyPatch):
 
 def test_render_body_uses_member_id_when_no_member():
     request = MagicMock(spec=PriorAuthRequest)
-    request.id = "rid"
+    request.uuid = "rid"
     request.member_id = "mid"
     request.date_of_service.isoformat.return_value = "2026-01-01"
     proc = MagicMock()
@@ -239,10 +241,12 @@ def test_process_batch_empty(db: Session):
 
 def test_approve_all_still_enqueues(client: TestClient, db: Session):
     data = submit_and_claim(client)
-    decided = decide_as(client, data["id"], approve_all_outcomes(data["procedures"]))
+    decided = decide_as(client, data["uuid"], approve_all_outcomes(data["procedures"]))
     assert decided.status_code == 200
     events = list(
-        db.scalars(select(OutboxEvent).where(OutboxEvent.request_id == decided.json()["id"])).all()
+        db.scalars(
+            select(OutboxEvent).where(OutboxEvent.request_id == decided.json()["uuid"])
+        ).all()
     )
     assert len(events) == 1
     assert events[0].status == OutboxStatus.pending

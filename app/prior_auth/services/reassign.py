@@ -45,14 +45,14 @@ def reassign_request(
     stmt = (
         update(PriorAuthRequest)
         .where(
-            PriorAuthRequest.id == request_id,
+            PriorAuthRequest.uuid == request_id,
             PriorAuthRequest.status == RequestStatus.in_review,
         )
         .values(
             claimed_by_user_id=reviewer_id,
             claimed_at=now,
         )
-        .returning(PriorAuthRequest.id)
+        .returning(PriorAuthRequest.uuid)
     )
     moved_id = db.execute(stmt).scalar_one_or_none()
     if moved_id is None:

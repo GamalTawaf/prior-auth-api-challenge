@@ -20,7 +20,7 @@ bearer = HTTPBearer(auto_error=False)
 
 def mint_token(user: User, *, hours: int = 24, exp: datetime | None = None) -> str:
     payload = {
-        "sub": str(user.id),
+        "sub": str(user.uuid),
         "role": user.role.value,
         "practice_id": str(user.practice_id) if user.practice_id else None,
         "member_id": str(user.member_id) if user.member_id else None,
@@ -57,7 +57,7 @@ def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
     return UserContext(
-        user_id=user.id,
+        user_id=user.uuid,
         role=user.role,
         practice_id=user.practice_id,
         member_id=user.member_id,

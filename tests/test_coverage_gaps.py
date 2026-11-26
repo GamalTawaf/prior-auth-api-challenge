@@ -49,7 +49,7 @@ def test_get_db_yields_and_closes():
 
 def test_submit_office_without_practice(db: Session, client: TestClient):
     orphan = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"orphan-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.provider_office,
         practice_id=None,
@@ -89,13 +89,13 @@ def test_router_not_found(client: TestClient, path_template: str, role: str, exp
 
 def test_claimed_hidden_from_other_reviewer(client: TestClient):
     data = submit_and_claim(client)
-    denied = get_as(client, data["id"], "reviewer2")
+    denied = get_as(client, data["uuid"], "reviewer2")
     assert denied.status_code == 403
 
 
 def test_intake_wrong_practice_hidden(client: TestClient, db: Session):
     other_office = make_other_office(db, name="Other")
-    failed = submit_as_office(client, member_id=str(client.seed["unlinked"].id))
+    failed = submit_as_office(client, member_id=str(client.seed["unlinked"].uuid))
     cid = failed.json()["correlation_id"]
     hidden = client.get(
         f"/v1/support/intake-rejections/{cid}",
@@ -107,17 +107,17 @@ def test_intake_wrong_practice_hidden(client: TestClient, db: Session):
 
 
 def test_claim_not_found(db: Session, seed_data: dict):
-    ctx = UserContext(user_id=seed_data["reviewer"].id, role=UserRole.reviewer)
+    ctx = UserContext(user_id=seed_data["reviewer"].uuid, role=UserRole.reviewer)
     with pytest.raises(NotFoundError):
         claim_request(db, ctx, uuid.uuid4())
 
 
 def test_decide_edges(db: Session, seed_data: dict, client: TestClient):
     data = submit_and_claim(client)
-    rid = uuid.UUID(data["id"])
-    proc_id = uuid.UUID(data["procedures"][0]["id"])
+    rid = uuid.UUID(data["uuid"])
+    proc_id = uuid.UUID(data["procedures"][0]["uuid"])
     dummy_outcome = ProcedureDecisionIn(procedure_id=proc_id, decision="approved")
-    ctx = UserContext(user_id=seed_data["reviewer"].id, role=UserRole.reviewer)
+    ctx = UserContext(user_id=seed_data["reviewer"].uuid, role=UserRole.reviewer)
 
     with pytest.raises(NotFoundError):
         decide_request(db, ctx, uuid.uuid4(), DecideIn(outcomes=[dummy_outcome]))
@@ -133,36 +133,36 @@ def test_decide_edges(db: Session, seed_data: dict, client: TestClient):
 
     req = db.get(PriorAuthRequest, rid)
     assert req is not None
-    req.claimed_by_user_id = seed_data["reviewer_coi"].id
+    req.claimed_by_user_id = seed_data["reviewer_coi"].uuid
     db.flush()
-    coi_ctx = UserContext(user_id=seed_data["reviewer_coi"].id, role=UserRole.reviewer)
+    coi_ctx = UserContext(user_id=seed_data["reviewer_coi"].uuid, role=UserRole.reviewer)
     with pytest.raises(ForbiddenError):
         decide_request(db, coi_ctx, rid, DecideIn(outcomes=[dummy_outcome]))
 
-    req.claimed_by_user_id = seed_data["reviewer"].id
+    req.claimed_by_user_id = seed_data["reviewer"].uuid
     db.flush()
-    other = UserContext(user_id=seed_data["reviewer2"].id, role=UserRole.reviewer)
+    other = UserContext(user_id=seed_data["reviewer2"].uuid, role=UserRole.reviewer)
     with pytest.raises(ForbiddenError):
         decide_request(db, other, rid, DecideIn(outcomes=[dummy_outcome]))
 
 
 def test_reassign_edges(client: TestClient):
-    missing = reassign_as(client, str(uuid.uuid4()), client.seed["reviewer"].id)
+    missing = reassign_as(client, str(uuid.uuid4()), client.seed["reviewer"].uuid)
     assert missing.status_code == 404
 
     created = submit_as_office(client)
-    rid = created.json()["id"]
-    bad_state = reassign_as(client, rid, client.seed["reviewer"].id)
+    rid = created.json()["uuid"]
+    bad_state = reassign_as(client, rid, client.seed["reviewer"].uuid)
     assert bad_state.status_code == 409
 
     claim_as(client, rid)
-    bad_rev = reassign_as(client, rid, client.seed["office"].id)
+    bad_rev = reassign_as(client, rid, client.seed["office"].uuid)
     assert bad_rev.status_code == 422
 
 
 def test_member_serializer_statuses():
     request = PriorAuthRequest(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         member_id=uuid.uuid4(),
         practice_id=uuid.uuid4(),
         submitted_by_user_id=uuid.uuid4(),
@@ -173,16 +173,16 @@ def test_member_serializer_statuses():
     request.created_at = datetime.now(UTC)
     request.procedures = [
         PriorAuthProcedure(
-            id=uuid.uuid4(),
-            request_id=request.id,
+            uuid=uuid.uuid4(),
+            request_id=request.uuid,
             code="99213",
             units=1,
             sequence=1,
             decision=ProcedureDecision.approved,
         ),
         PriorAuthProcedure(
-            id=uuid.uuid4(),
-            request_id=request.id,
+            uuid=uuid.uuid4(),
+            request_id=request.uuid,
             code="99214",
             units=1,
             sequence=2,
@@ -203,13 +203,13 @@ def test_admin_lists_all(client: TestClient):
 
 @pytest.mark.parametrize("role", ["reviewer", "admin"])
 def test_reviewer_or_admin_can_get_unclaimed(client: TestClient, role: str):
-    rid = submit_ok(client)["id"]
+    rid = submit_ok(client)["uuid"]
     assert get_as(client, rid, role).status_code == 200
 
 
 def test_office_wrong_practice_get(client: TestClient, db: Session):
     other_office = make_other_office(db, name="Elsewhere")
-    rid = submit_ok(client)["id"]
+    rid = submit_ok(client)["uuid"]
     response = client.get(
         f"/v1/prior-auths/{rid}",
         headers=auth(mint_token(other_office)),
@@ -218,17 +218,17 @@ def test_office_wrong_practice_get(client: TestClient, db: Session):
 
 
 def test_member_forbidden_on_get_prior_auth(client: TestClient):
-    rid = submit_ok(client)["id"]
+    rid = submit_ok(client)["uuid"]
     assert get_as(client, rid, "member").status_code == 403
 
 
 def test_member_cannot_see_other_members_request(client: TestClient, db: Session):
-    rid = submit_ok(client)["id"]
+    rid = submit_ok(client)["uuid"]
     other = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"mem2-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.member,
-        member_id=client.seed["unlinked"].id,
+        member_id=client.seed["unlinked"].uuid,
         display_name="Other Member",
     )
     db.add(other)

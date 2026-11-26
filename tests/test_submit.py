@@ -26,11 +26,13 @@ def test_submit_happy_path(client: TestClient, db: Session):
     assert data["clinical_note"] == "Patient needs procedure"
     assert len(data["procedures"]) == 1
 
-    request = db.get(PriorAuthRequest, data["id"])
+    request = db.get(PriorAuthRequest, data["uuid"])
     assert request is not None
     assert request.status == RequestStatus.submitted
     audit = db.scalars(
-        select(AuditEvent).where(AuditEvent.request_id == request.id, AuditEvent.action == "submit")
+        select(AuditEvent).where(
+            AuditEvent.request_id == request.uuid, AuditEvent.action == "submit"
+        )
     ).first()
     assert audit is not None
 
@@ -97,7 +99,7 @@ def test_submit_validation_errors(
 ):
     resolved = dict(overrides)
     if resolved.get("member_id") == "UNLINKED":
-        resolved["member_id"] = str(client.seed["unlinked"].id)
+        resolved["member_id"] = str(client.seed["unlinked"].uuid)
     if resolved.get("date_of_service") == "PAST":
         resolved["date_of_service"] = (get_today() - timedelta(days=1)).isoformat()
     if resolved.get("date_of_service") == "FAR":
@@ -109,7 +111,7 @@ def test_submit_validation_errors(
 
 
 def test_no_coverage(client: TestClient, db: Session):
-    cov = db.scalars(select(Coverage).where(Coverage.member_id == client.seed["member"].id)).one()
+    cov = db.scalars(select(Coverage).where(Coverage.member_id == client.seed["member"].uuid)).one()
     cov.effective_to = get_today() - timedelta(days=1)
     db.flush()
     assert_has_error_code(
@@ -121,10 +123,10 @@ def test_no_coverage(client: TestClient, db: Session):
 
 
 def test_office_list_and_get_practice_scoped(client: TestClient):
-    rid = submit_ok(client)["id"]
+    rid = submit_ok(client)["uuid"]
     listed = client.get("/v1/prior-auths", headers=role_headers(client, "office"))
     assert listed.status_code == 200
-    assert any(r["id"] == rid for r in listed.json())
+    assert any(r["uuid"] == rid for r in listed.json())
     got = get_as(client, rid, "office")
     assert got.status_code == 200
-    assert got.json()["id"] == rid
+    assert got.json()["uuid"] == rid

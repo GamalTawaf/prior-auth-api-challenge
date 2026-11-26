@@ -24,10 +24,10 @@ from tests.conftest import (
 
 def test_duplicate_procedure_outcomes_rejected(client: TestClient):
     data = submit_and_claim(client)
-    pid = data["procedures"][0]["id"]
+    pid = data["procedures"][0]["uuid"]
     response = decide_as(
         client,
-        data["id"],
+        data["uuid"],
         [
             {"procedure_id": pid, "decision": "approved"},
             {"procedure_id": pid, "decision": "denied", "denial_reason": "x"},
@@ -43,7 +43,7 @@ def test_duplicate_procedure_outcomes_rejected(client: TestClient):
 
 def test_reassign_rejects_coi_reviewer(client: TestClient):
     data = submit_and_claim(client)
-    response = reassign_as(client, data["id"], client.seed["reviewer_coi"].id)
+    response = reassign_as(client, data["uuid"], client.seed["reviewer_coi"].uuid)
     assert_has_error_code(
         response,
         "reviewer_coi",

@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 class AuditEventOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
+    uuid: uuid.UUID
     request_id: uuid.UUID | None
     intake_rejection_id: uuid.UUID | None
     actor_user_id: uuid.UUID

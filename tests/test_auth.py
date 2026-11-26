@@ -18,6 +18,14 @@ from tests.conftest import (
 )
 
 
+def test_user_role_people_names():
+    assert "patient" in UserRole.member.people_name.lower()
+    assert "doctor" in UserRole.provider_office.people_name.lower()
+    assert "physician" in UserRole.reviewer.people_name.lower()
+    assert "moving" in UserRole.ops_admin.people_name.lower()
+    assert "compliance" in UserRole.auditor.people_name.lower()
+
+
 def test_seed_jwt_authorizes_protected_list(client: TestClient):
     response = client.get("/v1/prior-auths", headers=role_headers(client, "office"))
     assert response.status_code == 200
@@ -53,7 +61,7 @@ def _ghost_user_headers(_client: TestClient):
 
 
 def _no_exp_headers(client: TestClient):
-    office_id = str(client.seed["office"].id)
+    office_id = str(client.seed["office"].uuid)
     return auth(encode_raw_jwt({"sub": office_id, "role": "provider_office"}))
 
 
@@ -95,7 +103,7 @@ def test_minted_tokens_carry_an_expiry(client: TestClient):
 def test_auth_uses_db_role_not_token_role(client: TestClient):
     forged = encode_raw_jwt(
         {
-            "sub": str(client.seed["office"].id),
+            "sub": str(client.seed["office"].uuid),
             "role": "ops_admin",
             "exp": 9999999999,
         }
@@ -103,7 +111,7 @@ def test_auth_uses_db_role_not_token_role(client: TestClient):
     response = client.get("/v1/prior-auths", headers=auth(forged))
     assert response.status_code == 200
 
-    rid = submit_ok(client)["id"]
+    rid = submit_ok(client)["uuid"]
     audit = get_audit_as(client, rid)
     # forged token claims admin but DB role is office — use forged header directly
     forged_audit = client.get(f"/v1/prior-auths/{rid}/audit", headers=auth(forged))

@@ -30,21 +30,21 @@ def test_concurrent_reassign_audit_from_chain(engine):
 
     with SessionLocal() as db:
         admin = User(
-            id=uuid.uuid4(),
+            uuid=uuid.uuid4(),
             email=f"a-{uuid.uuid4().hex[:6]}@ex.com",
             role=UserRole.ops_admin,
             display_name="A",
         )
         r3 = User(
-            id=uuid.uuid4(),
+            uuid=uuid.uuid4(),
             email=f"r3-{uuid.uuid4().hex[:6]}@ex.com",
             role=UserRole.reviewer,
             display_name="R3",
         )
         db.add_all([admin, r3])
         db.commit()
-        admin_id = admin.id
-        r3_id = r3.id
+        admin_id = admin.uuid
+        r3_id = r3.uuid
 
     def make_attempt(reviewer_id):
         def _body():

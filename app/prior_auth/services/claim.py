@@ -23,7 +23,7 @@ def claim_request(db: Session, reviewer: UserContext, request_id: uuid.UUID) -> 
     stmt = (
         update(PriorAuthRequest)
         .where(
-            PriorAuthRequest.id == request_id,
+            PriorAuthRequest.uuid == request_id,
             PriorAuthRequest.status == RequestStatus.submitted,
             unclaimed,
         )
@@ -32,7 +32,7 @@ def claim_request(db: Session, reviewer: UserContext, request_id: uuid.UUID) -> 
             claimed_by_user_id=reviewer.user_id,
             claimed_at=now,
         )
-        .returning(PriorAuthRequest.id)
+        .returning(PriorAuthRequest.uuid)
     )
     claimed_id = db.execute(stmt).scalar_one_or_none()
     if claimed_id is None:

@@ -17,13 +17,13 @@ from tests.conftest import (
 
 
 def test_claim_via_http(client: TestClient):
-    rid = submit_ok(client)["id"]
+    rid = submit_ok(client)["uuid"]
     queue = client.get("/v1/review-queue", headers=role_headers(client, "reviewer"))
-    assert any(r["id"] == rid for r in queue.json())
+    assert any(r["uuid"] == rid for r in queue.json())
     claimed = claim_as(client, rid)
     assert claimed.status_code == 200
     assert claimed.json()["status"] == "in_review"
-    assert claimed.json()["claimed_by_user_id"] == str(client.seed["reviewer"].id)
+    assert claimed.json()["claimed_by_user_id"] == str(client.seed["reviewer"].uuid)
 
     lost = claim_as(client, rid, role="reviewer2")
     assert lost.status_code == 409

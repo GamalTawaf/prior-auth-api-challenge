@@ -181,11 +181,11 @@ def submit_prior_auth(
         actor_user_id=ctx.user_id,
         action="submit",
         payload={
-            "request_id": str(request.id),
+            "request_id": str(request.uuid),
             "member_id": str(body.member_id),
             "procedure_codes": [p.code for p in request.procedures],
         },
-        request_id=request.id,
+        request_id=request.uuid,
     )
     # Separate guards (not one `and` chain) so `and`→`or` cannot no-op on HTTP.
     # practice_id is already required at the top of this function.
@@ -200,7 +200,7 @@ def submit_prior_auth(
         practice_id=ctx.practice_id,
         key=idempotency_key,
         request_hash=request_hash,
-        request_id=request.id,
+        request_id=request.uuid,
         response=response,
     )
     return _commit_refresh(db, request)

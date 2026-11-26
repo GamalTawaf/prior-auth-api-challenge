@@ -34,7 +34,7 @@ class SubmitPriorAuthIn(BaseModel):
 class ProcedureOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
+    uuid: uuid.UUID
     code: str
     units: int
     sequence: int
@@ -45,7 +45,7 @@ class ProcedureOut(BaseModel):
 class PriorAuthOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
+    uuid: uuid.UUID
     member_id: uuid.UUID
     practice_id: uuid.UUID
     submitted_by_user_id: uuid.UUID
@@ -68,7 +68,7 @@ class MemberProcedureStatus(StrEnum):
 
 
 class MemberProcedureOut(BaseModel):
-    id: uuid.UUID
+    uuid: uuid.UUID
     code: str
     units: int
     sequence: int
@@ -76,7 +76,7 @@ class MemberProcedureOut(BaseModel):
 
 
 class MemberPriorAuthOut(BaseModel):
-    id: uuid.UUID
+    uuid: uuid.UUID
     member_id: uuid.UUID
     practice_id: uuid.UUID
     diagnosis_icd10: str

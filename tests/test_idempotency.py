@@ -22,7 +22,7 @@ def _office_list(client) -> list[dict]:
 def test_missing_header_creates_two_rows(client):
     first = submit_ok(client)
     second = submit_ok(client)
-    assert first["id"] != second["id"]
+    assert first["uuid"] != second["uuid"]
     assert len(_office_list(client)) == 2
 
 
@@ -52,7 +52,7 @@ def test_different_keys_create_two_rows(client):
     b = submit_with_idempotency_key(client, "key-b")
     assert a.status_code == 201, a.text
     assert b.status_code == 201, b.text
-    assert a.json()["id"] != b.json()["id"]
+    assert a.json()["uuid"] != b.json()["uuid"]
     assert len(_office_list(client)) == 2
 
 
@@ -87,7 +87,7 @@ def test_no_header_still_works_alongside_keyed(client):
     plain = submit_as_office(client)
     assert keyed.status_code == 201, keyed.text
     assert plain.status_code == 201, plain.text
-    assert keyed.json()["id"] != plain.json()["id"]
+    assert keyed.json()["uuid"] != plain.json()["uuid"]
     assert len(_office_list(client)) == 2
 
 
@@ -105,12 +105,12 @@ def test_integrity_error_replays_stored_winner(client, monkeypatch: pytest.Monke
     submit_in = SubmitPriorAuthIn.model_validate(payload)
     request_hash = body_hash(submit_in)
     winner = IdempotencyRecord(
-        practice_id=client.seed["practice"].id,
+        practice_id=client.seed["practice"].uuid,
         key="race-win",
         request_hash=request_hash,
         response_status=201,
         response_body=body,
-        request_id=body["id"],
+        request_id=body["uuid"],
     )
     lookups = {"n": 0}
 
@@ -161,7 +161,7 @@ def test_orphan_office_with_idempotency_key_still_validates(client, db):
     from tests.conftest import assert_has_error_code, auth, valid_submit_body
 
     orphan = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"orphan-idem-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.provider_office,
         practice_id=None,
@@ -197,7 +197,7 @@ def test_submit_with_key_but_no_hash_skips_store(client, db):
 
     office = client.seed["office"]
     ctx = UserContext(
-        user_id=office.id,
+        user_id=office.uuid,
         role=office.role,
         practice_id=office.practice_id,
         email=office.email,
@@ -210,7 +210,7 @@ def test_submit_with_key_but_no_hash_skips_store(client, db):
         idempotency_key="no-hash-key",
         request_hash=None,
     )
-    assert request.id is not None
+    assert request.uuid is not None
     assert get_record(db, office.practice_id, "no-hash-key") is None
     count = db.scalar(select(func.count()).select_from(IdempotencyRecord))
     assert count == 0
@@ -226,7 +226,7 @@ def test_integrity_error_orphan_key_reraises(client, db, monkeypatch: pytest.Mon
     from tests.conftest import auth, valid_submit_body
 
     orphan = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"orphan-race-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.provider_office,
         practice_id=None,
