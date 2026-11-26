@@ -52,8 +52,12 @@ services:
       SMTP_FROM: noreply@prior-auth.local
       OUTBOX_POLL_SECONDS: "2"
       OUTBOX_BATCH_SIZE: "20"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+      OTEL_SERVICE_NAME: prior-auth-outbox-worker
     depends_on:
       db:
         condition: service_healthy
       maildev:
+        condition: service_started
+      otel-lgtm:
         condition: service_started

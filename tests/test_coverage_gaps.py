@@ -245,12 +245,28 @@ def test_telemetry_otlp_and_counters(monkeypatch):
     from fastapi import FastAPI
 
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+    # Force a fresh provider path even if the TestClient lifespan already ran.
+    tel._providers_ready = False
+    tel._sqlalchemy_instrumented = False
+    instrumented: list[dict] = []
+
+    class FakeSQLA:
+        def instrument(self, **kwargs):
+            instrumented.append(kwargs)
+
+    monkeypatch.setattr(tel, "SQLAlchemyInstrumentor", FakeSQLA)
     app = FastAPI()
     with contextlib.suppress(Exception):
         tel.setup_telemetry(app)
+    assert instrumented
+    assert "engine" in instrumented[0]
     tel.record_claim_conflict()
     tel.record_intake_rejection()
     tel._claim_conflict_counter = None
     tel._intake_rejection_counter = None
     tel.record_claim_conflict()
     tel.record_intake_rejection()
+    # Second configure is idempotent for providers/SQLAlchemy; still instruments FastAPI.
+    tel.configure_telemetry(fastapi_app=FastAPI())
+    # Worker path: providers already up, no FastAPI app.
+    tel.configure_telemetry()
