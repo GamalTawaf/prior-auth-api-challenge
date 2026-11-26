@@ -73,6 +73,87 @@ _PATH_VAR_DEFAULTS: dict[str, str] = {
     "correlation_id": "{{correlation_id}}",
 }
 
+# Postman "Tests" (post-response) scripts — keep as plain JS lines for collection JSON.
+_SET_ENV_HELPER = """
+function setEnv(key, value) {
+  if (value === undefined || value === null || value === "") return;
+  const s = String(value);
+  pm.environment.set(key, s);
+  pm.collectionVariables.set(key, s);
+}
+function capturePriorAuth(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return;
+  if (body.id) setEnv("request_id", body.id);
+  const procs = body.procedures;
+  if (Array.isArray(procs) && procs.length && procs[0] && procs[0].id) {
+    setEnv("procedure_id", procs[0].id);
+  }
+}
+function captureCorrelation(body) {
+  if (body && body.correlation_id) setEnv("correlation_id", body.correlation_id);
+}
+function parseBody() {
+  try { return pm.response.json(); } catch (e) { return null; }
+}
+""".strip().splitlines()
+
+_CAPTURE_PRIOR_AUTH_TEST = [
+    *_SET_ENV_HELPER,
+    "const body = parseBody();",
+    "if (!body) return;",
+    "if (Array.isArray(body) && body.length) {",
+    "  capturePriorAuth(body[0]);",
+    "} else {",
+    "  capturePriorAuth(body);",
+    "  captureCorrelation(body);",
+    "}",
+]
+
+_CAPTURE_CORRELATION_TEST = [
+    *_SET_ENV_HELPER,
+    "const body = parseBody();",
+    "captureCorrelation(body);",
+]
+
+_SUBMIT_PRE_REQUEST = [
+    "// Fresh key each Send so Submit creates a new prior auth (happy-path testing).",
+    "pm.environment.set('idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+    "pm.collectionVariables.set('idempotency_key', pm.environment.get('idempotency_key'));",
+]
+
+# (method, path) → post-response Tests script lines
+_TEST_SCRIPTS: dict[tuple[str, str], list[str]] = {
+    ("post", "/v1/prior-auths"): [
+        *_SET_ENV_HELPER,
+        "const body = parseBody();",
+        "capturePriorAuth(body);",
+        "captureCorrelation(body);",
+    ],
+    ("post", "/v1/prior-auths/{request_id}/claim"): _CAPTURE_PRIOR_AUTH_TEST,
+    ("post", "/v1/prior-auths/{request_id}/decision"): _CAPTURE_PRIOR_AUTH_TEST,
+    ("post", "/v1/prior-auths/{request_id}/reassign"): _CAPTURE_PRIOR_AUTH_TEST,
+    ("get", "/v1/prior-auths/{request_id}"): _CAPTURE_PRIOR_AUTH_TEST,
+    ("get", "/v1/prior-auths"): _CAPTURE_PRIOR_AUTH_TEST,
+    ("get", "/v1/review-queue"): _CAPTURE_PRIOR_AUTH_TEST,
+    ("get", "/v1/me/prior-auths"): _CAPTURE_PRIOR_AUTH_TEST,
+    ("get", "/v1/me/prior-auths/{request_id}"): _CAPTURE_PRIOR_AUTH_TEST,
+    ("get", "/v1/support/intake-rejections/{correlation_id}"): _CAPTURE_CORRELATION_TEST,
+}
+
+_PRE_REQUEST_SCRIPTS: dict[tuple[str, str], list[str]] = {
+    ("post", "/v1/prior-auths"): _SUBMIT_PRE_REQUEST,
+}
+
+
+def _event(listen: str, lines: list[str]) -> dict[str, Any]:
+    return {
+        "listen": listen,
+        "script": {
+            "type": "text/javascript",
+            "exec": lines,
+        },
+    }
+
 
 def _bearer(token_expr: str) -> dict[str, Any]:
     return {
@@ -213,6 +294,7 @@ def _items_from_openapi(spec: dict[str, Any]) -> list[dict[str, Any]]:
                         "description": "Optional; same key+body replays 201",
                     }
                 )
+            route = (method.lower(), path)
             request: dict[str, Any] = {
                 "method": method.upper(),
                 "header": headers,
@@ -220,7 +302,10 @@ def _items_from_openapi(spec: dict[str, Any]) -> list[dict[str, Any]]:
                 "auth": _bearer(token),
                 "description": (
                     op.get("description")
-                    or "Generated demo request — edit env vars (request_id, procedure_id) after submit."
+                    or (
+                        "Generated demo request. Tests scripts write request_id / procedure_id / "
+                        "correlation_id into the active environment from the response."
+                    )
                 ),
             }
             query = _query_defaults(path, method)
@@ -232,7 +317,17 @@ def _items_from_openapi(spec: dict[str, Any]) -> list[dict[str, Any]]:
                     "raw": _body_for(method, path, op, components),
                     "options": {"raw": {"language": "json"}},
                 }
-            items.append({"name": name, "request": request})
+            events: list[dict[str, Any]] = []
+            pre = _PRE_REQUEST_SCRIPTS.get(route)
+            if pre:
+                events.append(_event("prerequest", pre))
+            test = _TEST_SCRIPTS.get(route)
+            if test:
+                events.append(_event("test", test))
+            item: dict[str, Any] = {"name": name, "request": request}
+            if events:
+                item["event"] = events
+            items.append(item)
     return items
 
 
@@ -246,8 +341,9 @@ def main() -> None:
             "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
             "description": (
                 "Generated from FastAPI OpenAPI with seed demo bodies. "
-                "Run `scripts/seed.py`, import env, then Submit → paste id into "
-                "`request_id` / `procedure_id` for claim/decide. Do not hand-edit; regenerate."
+                "Run `scripts/seed.py`, import env, then Submit → Claim → Decide. "
+                "Tests scripts auto-set request_id / procedure_id / correlation_id. "
+                "Do not hand-edit; regenerate."
             ),
         },
         "item": items,
@@ -311,25 +407,25 @@ def main() -> None:
             "key": "request_id",
             "value": "00000000-0000-4000-8000-000000000001",
             "enabled": True,
-            "description": "Replace with Prior Auth id from Submit response",
+            "description": "Auto-set by Submit/Claim/GET Tests scripts",
         },
         {
             "key": "procedure_id",
             "value": "00000000-0000-4000-8000-000000000002",
             "enabled": True,
-            "description": "Replace with procedures[0].id from Submit/Claim response",
+            "description": "Auto-set to procedures[0].id by Tests scripts",
         },
         {
             "key": "idempotency_key",
             "value": "demo-submit-1",
             "enabled": True,
-            "description": "Optional Idempotency-Key for POST /v1/prior-auths",
+            "description": "Refreshed on each Submit via pre-request script",
         },
         {
             "key": "correlation_id",
             "value": "demo-correlation",
             "enabled": True,
-            "description": "From failed submit response / IntakeRejection",
+            "description": "Auto-set from failed submit / validation body",
         },
     ]
     for key, user in users.items():
@@ -361,6 +457,15 @@ def main() -> None:
     assert "{{reviewer_id}}" in reassign["request"]["body"]["raw"]
     claim = next(i for i in items if i["request"]["url"]["raw"].endswith("/claim"))
     assert claim["request"]["auth"]["bearer"][0]["value"] == "{{reviewer_token}}"
+    assert any(e["listen"] == "test" for e in submit.get("event", [])), "submit needs Tests script"
+    assert any(e["listen"] == "prerequest" for e in submit.get("event", [])), (
+        "submit needs pre-request"
+    )
+    submit_test = next(e for e in submit["event"] if e["listen"] == "test")
+    assert any("request_id" in line for line in submit_test["script"]["exec"])
+    assert any("procedure_id" in line for line in submit_test["script"]["exec"])
+    claim_test = next(e for e in claim["event"] if e["listen"] == "test")
+    assert any("capturePriorAuth" in line for line in claim_test["script"]["exec"])
 
     paths = {item["request"]["url"]["raw"] for item in items}
     required = [
