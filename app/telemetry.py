@@ -83,10 +83,14 @@ def configure_telemetry(*, fastapi_app: FastAPI | None = None) -> None:
     if not _sqlalchemy_instrumented:
         tracer_provider = trace.get_tracer_provider()
         meter_provider = metrics.get_meter_provider()
+        # OTel 0.66b2 still declares sqlalchemy<2.1 but works on 2.1.x; skip the
+        # dep check or it instruments nothing. Needs sqlalchemy[asyncio]/greenlet)
+        # because the instrumentor always imports sqlalchemy.ext.asyncio.
         SQLAlchemyInstrumentor().instrument(
             engine=engine,
             tracer_provider=tracer_provider,
             meter_provider=meter_provider,
+            skip_dep_check=True,
         )
         _sqlalchemy_instrumented = True
 
