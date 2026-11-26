@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from app.clock import get_today
 from app.identity.auth import mint_token
 from app.identity.models import User, UserRole
 from app.main import app
@@ -28,8 +29,7 @@ from scripts.seed import (
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "postman"
 
-# Stable demo values so generate → commit → check is a byte-for-byte file compare.
-_DEMO_DATE_OF_SERVICE = "2026-01-15"
+# Tokens use a fixed exp so env JSON is stable; DOS must be "today" for submit to pass.
 _POSTMAN_TOKEN_EXP = datetime(2099, 1, 1, tzinfo=UTC)
 
 _PATH_PARAM = re.compile(r"\{([^}/]+)\}")
@@ -39,7 +39,7 @@ _DEMO_BODIES: dict[tuple[str, str], dict[str, Any]] = {
     ("post", "/v1/prior-auths"): {
         "member_id": "{{member_id}}",
         "diagnosis_icd10": "J06.9",
-        "date_of_service": _DEMO_DATE_OF_SERVICE,
+        "date_of_service": "{{date_of_service}}",
         "clinical_note": "Demo clinical note for Postman",
         "procedures": [{"code": "99213", "units": 1}],
     },
@@ -123,6 +123,10 @@ _SUBMIT_PRE_REQUEST = [
     "// Fresh key each Send so Submit creates a new prior auth (happy-path testing).",
     "pm.environment.set('idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
     "pm.collectionVariables.set('idempotency_key', pm.environment.get('idempotency_key'));",
+    "// DOS must be today-or-later for intake; refresh on each Send.",
+    "const dos = new Date().toISOString().slice(0, 10);",
+    "pm.environment.set('date_of_service', dos);",
+    "pm.collectionVariables.set('date_of_service', dos);",
 ]
 
 # (method, path) → post-response Tests script lines
@@ -232,9 +236,9 @@ def _example_from_schema(schema: dict[str, Any], components: dict[str, Any]) -> 
         if fmt == "uuid":
             return str(MEMBER_ID)
         if fmt == "date":
-            return _DEMO_DATE_OF_SERVICE
+            return get_today().isoformat()
         if fmt == "date-time":
-            return f"{_DEMO_DATE_OF_SERVICE}T12:00:00Z"
+            return f"{get_today().isoformat()}T12:00:00Z"
         return "string"
     if schema_type == "integer":
         return 1
@@ -363,6 +367,7 @@ def main() -> None:
             },
             {"key": "correlation_id", "value": "demo-correlation"},
             {"key": "idempotency_key", "value": "demo-submit-1"},
+            {"key": "date_of_service", "value": get_today().isoformat()},
         ],
     }
 
@@ -426,6 +431,12 @@ def main() -> None:
             "description": "Refreshed on each Submit via pre-request script",
         },
         {
+            "key": "date_of_service",
+            "value": get_today().isoformat(),
+            "enabled": True,
+            "description": "Refreshed to today on each Submit via pre-request",
+        },
+        {
             "key": "correlation_id",
             "value": "demo-correlation",
             "enabled": True,
@@ -457,6 +468,13 @@ def main() -> None:
     )
     assert "J06.9" in submit["request"]["body"]["raw"], submit["request"]["body"]["raw"]
     assert "{{member_id}}" in submit["request"]["body"]["raw"]
+    assert "{{date_of_service}}" in submit["request"]["body"]["raw"]
+    assert any(
+        "date_of_service" in line
+        for line in next(e for e in submit["event"] if e["listen"] == "prerequest")["script"][
+            "exec"
+        ]
+    )
     decide = next(i for i in items if "/decision" in i["request"]["url"]["raw"])
     assert "{{procedure_id}}" in decide["request"]["body"]["raw"]
     reassign = next(i for i in items if "/reassign" in i["request"]["url"]["raw"])
