@@ -201,6 +201,12 @@ def seed_data(db: Session) -> dict:
         role=UserRole.ops_admin,
         display_name="Admin",
     )
+    auditor = User(
+        id=uuid.uuid4(),
+        email=f"auditor-{uuid.uuid4().hex[:6]}@ex.com",
+        role=UserRole.auditor,
+        display_name="Auditor",
+    )
     member_user = User(
         id=uuid.uuid4(),
         email=f"mem-{uuid.uuid4().hex[:6]}@ex.com",
@@ -208,7 +214,7 @@ def seed_data(db: Session) -> dict:
         member_id=member.id,
         display_name="Member",
     )
-    db.add_all([office, reviewer, reviewer2, reviewer_coi, admin, member_user])
+    db.add_all([office, reviewer, reviewer2, reviewer_coi, admin, auditor, member_user])
     db.flush()
     db.add(ReviewerMemberConflict(reviewer_user_id=reviewer_coi.id, member_id=member.id))
     db.flush()
@@ -221,6 +227,7 @@ def seed_data(db: Session) -> dict:
         "reviewer2": reviewer2,
         "reviewer_coi": reviewer_coi,
         "admin": admin,
+        "auditor": auditor,
         "member_user": member_user,
         "tokens": {
             "office": mint_token(office),
@@ -228,6 +235,7 @@ def seed_data(db: Session) -> dict:
             "reviewer2": mint_token(reviewer2),
             "reviewer_coi": mint_token(reviewer_coi),
             "admin": mint_token(admin),
+            "auditor": mint_token(auditor),
             "member": mint_token(member_user),
         },
     }

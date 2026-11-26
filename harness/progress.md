@@ -39,4 +39,14 @@
 - `decide_request` enqueues in same txn as audit; email body omits clinical_note / denial_reason
 - Compose: `maildev` (1025/1080) + `outbox-worker` (`python -m app.outbox.worker`)
 - Verify: `uv run pytest tests/test_outbox.py -v` → 12 passed; `./scripts/gates.sh`
+- `grit done -a wishlist-009` → merge commit `b46534a` on local `main`
 - Next: feat-010 auditor (alembic head = `20261125_outbox`)
+
+## 2026-11-25 — feat-010 Auditor role
+
+- `UserRole.auditor`; migration `20261125_auditor` (`down_revision = 20261125_outbox`) ADD VALUE via autocommit
+- Seed `auditor@example.com` + Postman `auditor_token`; `AdminOrAuditor` on audit GET
+- Read-all list/get via `OfficeAdminOrAuditor` / get_prior_auth auditor branch; mutations + workload + /me → 403
+- Verify: `uv run pytest tests/test_auditor.py -v`; `./scripts/gates.sh`
+- Next: feat-011 Idempotency-Key (alembic head = `20261125_auditor`)
+

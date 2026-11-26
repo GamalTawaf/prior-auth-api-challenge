@@ -86,8 +86,8 @@
       "name": "Auditor role",
       "description": "UserRole.auditor; seed token; AdminOrAuditor on audit GET; optional read-all list/get; no mutations. Lane: high.",
       "dependencies": ["feat-009"],
-      "status": "pending",
-      "evidence": "",
+      "status": "done",
+      "evidence": "uv run pytest tests/test_auditor.py -v → 3 passed; ./scripts/gates.sh green; alembic 20261125_auditor (down_revision 20261125_outbox)",
       "verify": "uv run pytest tests/test_auditor.py -v"
     },
     {

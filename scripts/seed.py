@@ -28,6 +28,7 @@ REVIEWER_ID = uuid.UUID("44444444-4444-4444-4444-444444444444")
 REVIEWER_COI_ID = uuid.UUID("44444444-4444-4444-4444-444444444455")
 ADMIN_ID = uuid.UUID("55555555-5555-5555-5555-555555555555")
 MEMBER_USER_ID = uuid.UUID("66666666-6666-6666-6666-666666666666")
+AUDITOR_ID = uuid.UUID("77777777-7777-7777-7777-777777777777")
 
 
 def seed() -> dict[str, str]:
@@ -39,6 +40,7 @@ def seed() -> dict[str, str]:
                 "reviewer_coi": db.get(User, REVIEWER_COI_ID),
                 "admin": db.get(User, ADMIN_ID),
                 "member": db.get(User, MEMBER_USER_ID),
+                "auditor": db.get(User, AUDITOR_ID),
             }
         else:
             practice = Practice(
@@ -94,7 +96,13 @@ def seed() -> dict[str, str]:
                 member_id=MEMBER_ID,
                 display_name="Alex Member",
             )
-            db.add_all([office, reviewer, reviewer_coi, admin, member_user])
+            auditor = User(
+                id=AUDITOR_ID,
+                email="auditor@example.com",
+                role=UserRole.auditor,
+                display_name="Auditor",
+            )
+            db.add_all([office, reviewer, reviewer_coi, admin, member_user, auditor])
             db.flush()
             db.add(ReviewerMemberConflict(reviewer_user_id=REVIEWER_COI_ID, member_id=MEMBER_ID))
             db.commit()
@@ -104,7 +112,19 @@ def seed() -> dict[str, str]:
                 "reviewer_coi": reviewer_coi,
                 "admin": admin,
                 "member": member_user,
+                "auditor": auditor,
             }
+
+        if users.get("auditor") is None:
+            auditor = User(
+                id=AUDITOR_ID,
+                email="auditor@example.com",
+                role=UserRole.auditor,
+                display_name="Auditor",
+            )
+            db.add(auditor)
+            db.commit()
+            users["auditor"] = auditor
 
         tokens = {k: mint_token(v) for k, v in users.items() if v is not None}
         return tokens
