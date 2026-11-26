@@ -1,12 +1,19 @@
-"""Redact PHI/PII from stdlib log records before handlers (incl. OTel) see them."""
+"""Redact PHI/PII from stdlib logs and OTel ``db.statement`` / ``db.query.text``."""
 
 from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Mapping, Sequence
 from typing import Any
 
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+
 REDACTED = "[REDACTED]"
+_DB_STATEMENT_KEYS = frozenset({"db.statement", "db.query.text"})
+# SQL single-quoted literals (including doubled '' escapes).
+_SQL_STRING_LITERAL = re.compile(r"'(?:[^']|'')*'")
 
 _EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 _JWT = re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b")
@@ -29,6 +36,61 @@ def redact_text(text: str) -> str:
     out = _BEARER.sub(f"Bearer {REDACTED}", out)
     out = _SENSITIVE_FIELD.sub(rf"\1{REDACTED}", out)
     return out
+
+
+def scrub_db_statement(statement: str) -> str:
+    """Mask PHI in SQL text: known field patterns, then all quoted literals."""
+    out = redact_text(statement)
+    sql_placeholder = f"'{REDACTED}'"
+    out = _SQL_STRING_LITERAL.sub(sql_placeholder, out)
+    return out
+
+
+def scrub_span_attributes(attributes: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not attributes:
+        return {}
+    out = dict(attributes)
+    for key in _DB_STATEMENT_KEYS:
+        value = out.get(key)
+        if isinstance(value, str):
+            out[key] = scrub_db_statement(value)
+    return out
+
+
+def _clone_span_with_scrubbed_attrs(span: ReadableSpan) -> ReadableSpan:
+    scrubbed_attrs = scrub_span_attributes(span.attributes)
+    context = span.get_span_context()
+    return ReadableSpan(
+        name=span.name,
+        context=context,
+        parent=span.parent,
+        resource=span.resource,
+        attributes=scrubbed_attrs,
+        events=span.events,
+        links=span.links,
+        kind=span.kind,
+        status=span.status,
+        start_time=span.start_time,
+        end_time=span.end_time,
+        instrumentation_scope=span.instrumentation_scope,
+    )
+
+
+class ScrubbingSpanExporter(SpanExporter):
+    """Wrap a SpanExporter and scrub ``db.statement`` / ``db.query.text`` before export."""
+
+    def __init__(self, delegate: SpanExporter) -> None:
+        self._delegate = delegate
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        scrubbed = [_clone_span_with_scrubbed_attrs(span) for span in spans]
+        return self._delegate.export(scrubbed)
+
+    def shutdown(self) -> None:
+        self._delegate.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return self._delegate.force_flush(timeout_millis)
 
 
 def _redact_value(value: Any) -> Any:

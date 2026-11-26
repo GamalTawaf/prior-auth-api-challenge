@@ -25,7 +25,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 
 from app.config import settings
 from app.db import engine
-from app.log_pii import install_pii_log_filter
+from app.log_pii import ScrubbingSpanExporter, install_pii_log_filter
 
 _claim_conflict_counter = None
 _intake_rejection_counter = None
@@ -38,7 +38,8 @@ def configure_telemetry(*, fastapi_app: FastAPI | None = None) -> None:
 
     No Redis in this stack. SMTP has no OTel instrumentation package — see
     ``app.outbox.mailer`` for manual ``smtp.send`` spans. Root logger gets a
-    PII/PHI redacting filter before handlers (incl. OTel logs) run.
+    PII/PHI redacting filter; span export scrubs ``db.statement`` /
+    ``db.query.text``.
     """
     global _claim_conflict_counter, _intake_rejection_counter
     global _providers_ready, _sqlalchemy_instrumented
@@ -51,7 +52,7 @@ def configure_telemetry(*, fastapi_app: FastAPI | None = None) -> None:
         # ponytail: console when OTLP unset; Compose sets endpoint → grafana/otel-lgtm
         otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
         if otlp_endpoint:
-            span_exporter = OTLPSpanExporter()
+            span_exporter = ScrubbingSpanExporter(OTLPSpanExporter())
             metric_exporter = OTLPMetricExporter()
             log_exporter = OTLPLogExporter()
             tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
@@ -63,7 +64,8 @@ def configure_telemetry(*, fastapi_app: FastAPI | None = None) -> None:
             otel_handler = LoggingHandler(level=logging.INFO, logger_provider=logger_provider)
             logging.getLogger().addHandler(otel_handler)
         else:
-            tracer_provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+            console_spans = ScrubbingSpanExporter(ConsoleSpanExporter())
+            tracer_provider.add_span_processor(BatchSpanProcessor(console_spans))
             metric_reader = PeriodicExportingMetricReader(ConsoleMetricExporter())
 
         trace.set_tracer_provider(tracer_provider)
