@@ -25,6 +25,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 
 from app.config import settings
 from app.db import engine
+from app.log_pii import install_pii_log_filter
 
 _claim_conflict_counter = None
 _intake_rejection_counter = None
@@ -36,10 +37,13 @@ def configure_telemetry(*, fastapi_app: FastAPI | None = None) -> None:
     """Providers + SQLAlchemy (+ optional FastAPI). Safe to call from API or worker.
 
     No Redis in this stack. SMTP has no OTel instrumentation package — see
-    ``app.outbox.mailer`` for manual ``smtp.send`` spans.
+    ``app.outbox.mailer`` for manual ``smtp.send`` spans. Root logger gets a
+    PII/PHI redacting filter before handlers (incl. OTel logs) run.
     """
     global _claim_conflict_counter, _intake_rejection_counter
     global _providers_ready, _sqlalchemy_instrumented
+
+    install_pii_log_filter()
 
     if not _providers_ready:
         resource = Resource.create({"service.name": settings.otel_service_name})
