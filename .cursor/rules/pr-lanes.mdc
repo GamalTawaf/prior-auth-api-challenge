@@ -25,9 +25,19 @@ Every PR **must** be classified into exactly one lane and labeled on GitHub: `lo
 4. Refactors that preserve behavior byte-for-byte (same responses/errors) → **low**; if unsure whether behavior changed → **high**.
 5. State the lane in the PR body (Summary) and pass `--label <lane>` to `gh pr create` / `gh pr edit`.
 
+## One change → one PR
+
+- Split independent fixes/features into **separate PRs** (lane-homogeneous when possible).
+- Dependent sequential landings → **GitHub stacked PRs** via `gh stack` (skill `.cursor/skills/stacked-prs`). Do not hand-rebase the stack after each merge — GitHub owns bases/linking.
+- Do not bundle unrelated medium/high behavior into one mega-PR.
+
 ## Opening a PR (agents)
 
-1. Ensure labels exist: `./scripts/ensure_pr_labels.sh` (idempotent).
-2. Classify → one of `low` | `medium` | `high`.
-3. `gh pr create ... --label <lane>` (or `gh pr edit <n> --add-label <lane>`).
-4. PR title/body must name the lane (e.g. first Summary bullet: `Lane: high`).
+1. `unset GITHUB_TOKEN` if `gh` returns **401 Bad credentials** (stale env token overrides keyring).
+2. Ensure labels exist: `./scripts/ensure_pr_labels.sh` (idempotent).
+3. Classify → one of `low` | `medium` | `high`.
+4. `gh pr create ... --base main --label <lane>` (or `gh pr edit <n> --add-label <lane>`).
+5. PR title/body must name the lane (e.g. first Summary bullet: `Lane: high`).
+6. Keep the PR description current when new commits change intent (e.g. restored tooling).
+
+Load skill `.cursor/skills/open-pr` when creating or updating PRs.
