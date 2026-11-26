@@ -29,6 +29,7 @@ If baseline verification is failing, repair that first before adding new scope.
 - **Evidence required**: record commands + outcome in `harness/feature_list.json` `evidence` and append `harness/progress.md`
 - **Tests = user flow**: send real HTTP API calls; mock **only** DB responses and/or external calls; never mock routers/services/schemas/RBAC. Claim race + DB CHECKs use real Postgres (persistence is under test).
 - **Stay in scope**: implement only the active `harness/feature_list.json` item. Wishlist stretch is **feat-008…012** (plan `docs/plans/2026-11-25-wishlist-outbox-maildev.md`: workload, outbox→MailDev, auditor, Idempotency-Key). Do not invent further wishlist beyond that plan.
+- **Parallel agents:** use **[grit](https://github.com/rtk-ai/grit)** (`grit claim` → work in `.grit/worktrees/<agent>/` → `grit done`) when 2+ agents touch the same codebase. AST-level locks beat raw git worktree merges. Install: `cargo install --git https://github.com/rtk-ai/grit` or release binary to `~/.local/bin`. After big tree changes: `./scripts/grit_reindex.sh` (parks `.worktrees`/`.venv` — grit does not skip those top-level dirs). See wishlist plan § Grit.
 - **Leave clean state**: next session must be able to run `./init.sh` immediately
 
 ## Coding & quality gates (always)

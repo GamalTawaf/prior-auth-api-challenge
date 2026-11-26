@@ -41,7 +41,11 @@ def seed() -> dict[str, str]:
                 "member": db.get(User, MEMBER_USER_ID),
             }
         else:
-            practice = Practice(id=PRACTICE_ID, name="Riverside Clinic")
+            practice = Practice(
+                id=PRACTICE_ID,
+                name="Riverside Clinic",
+                notification_email="office@riverside.example.com",
+            )
             member = Member(id=MEMBER_ID, external_id="M-1001", full_name="Alex Member")
             unlinked = Member(
                 id=MEMBER_UNLINKED_ID, external_id="M-1099", full_name="Unlinked Patient"

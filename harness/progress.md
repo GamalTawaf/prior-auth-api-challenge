@@ -20,13 +20,23 @@
 
 - Scope: workload, outbox→MailDev, auditor role, Idempotency-Key on submit, docs/demo
 - Plan: `docs/plans/2026-11-25-wishlist-outbox-maildev.md`
-- Harness: feat-008…012 `pending`; next = feat-008 workload (medium lane)
-- Docs updated: `AGENTS.md`, `README.md` Decisions, MVP plan cross-links, session-handoff worktree table
-- Execution: one Task agent + git worktree per feature, stacked (008→009→010→011→012)
+- Harness: feat-008…012; next after 008 = feat-009
+- Docs updated: `AGENTS.md`, `README.md` Decisions, MVP plan cross-links, session-handoff
+- Execution: one Task agent per feature; **grit** for parallel claim/merge (`https://github.com/rtk-ai/grit`); `scripts/grit_reindex.sh`; feat-008 used plain `.worktrees/` — 009+ use grit
+- grit 0.4.0 at `~/.local/bin`; `./scripts/grit_reindex.sh` parks `.worktrees`/`.venv`
 
 ## 2026-11-25 — feat-008 Reviewer workload API
 
 - `GET /v1/reviewers/workload` (ops_admin): LEFT JOIN all `role=reviewer` with `open_count` of `in_review` claims
 - Route on `app/prior_auth/router.py` + `ReviewerWorkloadOut`; tests in `tests/test_workload.py`
 - Verify: `uv run pytest tests/test_workload.py -v`; `./scripts/gates.sh`
-- Next: feat-009 outbox + MailDev
+- Merged to local `main` (`9e20abe`); next: feat-009 via grit `wishlist-009`
+
+## 2026-11-25 — feat-009 Outbox + MailDev decision notify
+
+- Migration `20261125_outbox`: `practices.notification_email` NOT NULL + `outbox_events`
+- `app/outbox/`: models, mailer (stdlib smtplib), services enqueue/claim/process, worker module
+- `decide_request` enqueues in same txn as audit; email body omits clinical_note / denial_reason
+- Compose: `maildev` (1025/1080) + `outbox-worker` (`python -m app.outbox.worker`)
+- Verify: `uv run pytest tests/test_outbox.py -v` → 12 passed; `./scripts/gates.sh`
+- Next: feat-010 auditor (alembic head = `20261125_outbox`)

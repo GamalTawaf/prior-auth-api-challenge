@@ -33,6 +33,7 @@ from app.master_data.models import (
     Practice,
     ReviewerMemberConflict,
 )
+from app.outbox import models as _outbox_models  # noqa: F401
 from app.prior_auth import models as _pa_models  # noqa: F401
 
 # App/dev data: `prior_auth`. Pytest uses the same name with a `test_` prefix.
@@ -144,7 +145,11 @@ def db(engine) -> Generator[Session]:
 
 @pytest.fixture
 def seed_data(db: Session) -> dict:
-    practice = Practice(id=uuid.uuid4(), name="Test Practice")
+    practice = Practice(
+        id=uuid.uuid4(),
+        name="Test Practice",
+        notification_email="notify-test@example.com",
+    )
     member = Member(
         id=uuid.uuid4(),
         external_id=f"M-{uuid.uuid4().hex[:8]}",
@@ -381,7 +386,11 @@ def race_attempt(fn):
 
 
 def make_other_office(db: Session, *, name: str = "Other") -> User:
-    practice = Practice(id=uuid.uuid4(), name=name)
+    practice = Practice(
+        id=uuid.uuid4(),
+        name=name,
+        notification_email=f"notify-{uuid.uuid4().hex[:6]}@ex.com",
+    )
     db.add(practice)
     db.flush()
     office = User(
@@ -422,7 +431,11 @@ def seed_race_fixture(
 
     SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     with SessionLocal() as db:
-        practice = Practice(id=uuid.uuid4(), name=f"{name} Practice")
+        practice = Practice(
+            id=uuid.uuid4(),
+            name=f"{name} Practice",
+            notification_email=f"notify-{uuid.uuid4().hex[:6]}@ex.com",
+        )
         member = Member(
             id=uuid.uuid4(),
             external_id=f"{name[0]}-{uuid.uuid4().hex[:6]}",
