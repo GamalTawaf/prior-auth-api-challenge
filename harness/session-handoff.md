@@ -32,7 +32,7 @@ Plans (historical): `docs/plans/2026-11-24-prior-auth-api.md`, `docs/plans/2026-
 1. State machine + matrices in README Decisions
 2. `docker compose up -d && uv run alembic upgrade head && uv run python scripts/seed.py`
 3. `./scripts/demo.sh` — fail→support→submit→idempotency replay→claim 409→workload→COI→decide→MailDev→auditor→member redaction
-4. OpenAPI: http://localhost:8000/docs
+4. OpenAPI: http://localhost:8000/docs · Grafana LGTM: http://localhost:3000
 
 ## Verify
 

@@ -17,6 +17,8 @@ uv run pytest -q --cov=app --cov-report=term-missing   # fail_under=100
 
 OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
 
+Observability (Compose): Grafana LGTM at [http://localhost:3000](http://localhost:3000) — Tempo / Prometheus / Loki via OTLP (`api` → `http://otel-lgtm:4318`). No login required for local LGTM.
+
 ## Seed tokens
 
 `uv run python scripts/seed.py` prints Bearer JWTs for:
@@ -147,8 +149,9 @@ is thin (request id / member / DOS / procedure outcomes) — no `clinical_note` 
 `denial_reason` text. API never opens SMTP.
 
 ```bash
-docker compose up -d db maildev api outbox-worker
+docker compose up -d db maildev otel-lgtm api outbox-worker
 # after decide: open MailDev UI, or GET http://localhost:1080/email
+# traces/metrics/logs: http://localhost:3000 (Explore → Tempo / Prometheus / Loki)
 ```
 
 ### Auditor role
@@ -260,4 +263,4 @@ Covers: failed submit → support → happy submit → **Idempotency-Key replay*
 - Flat domain packages under `app/` (identity, master_data, prior_auth, intake, audit, outbox, shared)
 - Thin routers; rules in `prior_auth/services/*`
 - Role-specific response schemas (member strips note + denial reason)
-- OpenTelemetry in `telemetry.py` (console default; OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` set)
+- OpenTelemetry in `telemetry.py` (console default; Compose sets `OTEL_EXPORTER_OTLP_ENDPOINT` → `grafana/otel-lgtm` for traces, metrics, and logs)
