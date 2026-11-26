@@ -227,13 +227,14 @@ Domain packages, thin services, no restating comments. Audit/RBAC/validation and
 ## Gates (commit + CI)
 
 ```bash
-./scripts/gates.sh                 # ruff format/check, call-style, fastapi compile, pytest
+./scripts/gates.sh                 # ruff, call-style, fastapi compile, postman fresh, pytest
 ./scripts/install_git_hooks.sh     # pre-commit runs gates with GATES_SKIP_TESTS=1
 ```
 
 - **ruff** — `ruff format --check` + `ruff check` (E/W/F/I/UP/B/SIM/C4/RUF)
 - **call-style** — no nested non-constructor calls and no `if`/`and`/`or`/lambda expressions inside function call arguments (`scripts/check_call_style.py`; nested-call rule applies to `app/` except models/schemas)
 - **fastapi compile** — `compileall` + `app.openapi()` + route callable inventory (`scripts/check_fastapi_compile.py`)
+- **postman fresh** — committed `postman/Prior_Auth_API*.json` match a fresh generate (`scripts/check_postman_collection.py`)
 
 Every CI step writes a pass/fail block to the GitHub Actions job summary.
 
@@ -272,12 +273,20 @@ Scoped via `setup.cfg`: `source_paths=app/`, `only_mutate=app/prior_auth/service
 
 ## Postman
 
+Tracked (regenerate after OpenAPI / seed / JWT changes):
+
+- [Collection](postman/Prior_Auth_API.postman_collection.json)
+- [Environment](postman/Prior_Auth_API.postman_environment.json) (**Prior Auth Local**)
+
 ```bash
+export JWT_SECRET=dev-only-change-me-32bytes-min!!   # must match Compose
 ./scripts/generate_postman_collection.py
 # or: uv run python scripts/generate_postman_collection.py
 ```
 
-Writes `postman/*.json` from `app.openapi()` (not committed). Import the collection + **Prior Auth Local** environment. Each request has a role token, demo body, and Tests scripts that write `request_id` / `procedure_id` / `correlation_id` from the response — Submit → Claim → Decide with no manual paste. Submit also refreshes `idempotency_key` on each Send.
+Import both files in Postman (re-import after regenerating). Env JWTs use a fixed long-lived `exp` for stable generate/check; they still require `JWT_SECRET` to match Compose. Each request has a role token, demo body, and Tests scripts that write `request_id` / `procedure_id` / `correlation_id` from the response — Submit → Claim → Decide with no manual paste. Submit also refreshes `idempotency_key` on each Send. Pre-commit/CI byte-compares these files to a fresh generate.
+
+Manual walkthrough: [`README_TEST.md`](README_TEST.md).
 
 ## Live walkthrough
 

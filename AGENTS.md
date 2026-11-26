@@ -85,9 +85,9 @@ Mirrored in `.cursor/rules/coding-gates.mdc`.
 ./scripts/demo.sh
 ```
 
-- Pre-commit: gates with `GATES_SKIP_TESTS=1` (full pytest still in CI / `./init.sh`)
+- Pre-commit: gates with `GATES_SKIP_TESTS=1` (includes postman fresh; full pytest still in CI / `./init.sh`)
 - Mutmut: `./scripts/run_mutmut.sh` (CI / hot-path gate; not every local init)
-- Postman: `./scripts/generate_postman_collection.py` (gitignored; demo bodies + Tests scripts set request_id/procedure_id; do not hand-edit)
+- Postman: `./scripts/generate_postman_collection.py` → commit `postman/Prior_Auth_API*.json` (desktop dumps stay gitignored); do not hand-edit JSON. Pre-commit/CI: `scripts/check_postman_collection.py`
 
 ## Pull requests — never commit to `main`
 

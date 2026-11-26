@@ -31,3 +31,6 @@ jobs:
       - name: fastapi compile + OpenAPI
         if: ${{ inputs.code }}
         run: ./scripts/ci_run.sh "fastapi compile" -- uv run python scripts/check_fastapi_compile.py
+      - name: postman collection fresh
+        if: ${{ inputs.code }}
+        run: ./scripts/ci_run.sh "postman fresh" -- uv run python scripts/check_postman_collection.py

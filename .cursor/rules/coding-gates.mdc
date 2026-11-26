@@ -20,6 +20,7 @@ alwaysApply: true
 
 - **ruff** format + check on `app` `tests` `scripts` (see `pyproject.toml`).
 - **FastAPI compile** via `scripts/check_fastapi_compile.py` (import `app.main:app`, OpenAPI path sanity).
+- **Postman fresh** via `scripts/check_postman_collection.py` (committed `postman/Prior_Auth_API*.json` match a fresh generate).
 - **pytest** with **100%** line+branch coverage (`fail_under = 100`).
 - Run `./scripts/gates.sh` before claiming done. Pre-commit uses `GATES_SKIP_TESTS=1`; full suite still in CI / `./init.sh`.
 - Every gate/CI step must emit a **visible summary** (stdout `### …` and `$GITHUB_STEP_SUMMARY` when set). New pipeline steps must follow `run_step` / the CI `| tee` + summary pattern.

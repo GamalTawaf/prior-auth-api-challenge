@@ -15,8 +15,10 @@ dist/
 .superpowers/
 .worktrees/
 worktrees/
-# Generated Postman artifacts + desktop sync dumps (run scripts/generate_postman_collection.py)
+# Postman desktop sync dumps; keep generated Prior_Auth_API*.json tracked for docs links
 .postman/
-postman/
+postman/*
+!postman/Prior_Auth_API.postman_collection.json
+!postman/Prior_Auth_API.postman_environment.json
 
 .grit
