@@ -21,6 +21,12 @@ ICD10_RE = re.compile(r"^[A-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?$", re.IGNORECASE
 CPT_RE = re.compile(r"^[A-Z0-9]{5}$", re.IGNORECASE)
 
 
+def _commit_refresh(db: Session, request: PriorAuthRequest) -> PriorAuthRequest:
+    db.commit()
+    db.refresh(request)
+    return request
+
+
 def submit_prior_auth(
     db: Session,
     ctx: UserContext,
@@ -181,17 +187,20 @@ def submit_prior_auth(
         },
         request_id=request.id,
     )
-    if idempotency_key is not None and request_hash is not None and ctx.practice_id is not None:
-        db.refresh(request)
-        response = to_prior_auth_out(request)
-        store_record(
-            db,
-            practice_id=ctx.practice_id,
-            key=idempotency_key,
-            request_hash=request_hash,
-            request_id=request.id,
-            response=response,
-        )
-    db.commit()
+    # Separate guards (not one `and` chain) so `and`→`or` cannot no-op on HTTP.
+    # practice_id is already required at the top of this function.
+    if idempotency_key is None:
+        return _commit_refresh(db, request)
+    if request_hash is None:
+        return _commit_refresh(db, request)
     db.refresh(request)
-    return request
+    response = to_prior_auth_out(request)
+    store_record(
+        db,
+        practice_id=ctx.practice_id,
+        key=idempotency_key,
+        request_hash=request_hash,
+        request_id=request.id,
+        response=response,
+    )
+    return _commit_refresh(db, request)

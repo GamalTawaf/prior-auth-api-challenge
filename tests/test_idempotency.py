@@ -182,6 +182,40 @@ def test_orphan_office_with_idempotency_key_still_validates(client, db):
     )
 
 
+def test_submit_with_key_but_no_hash_skips_store(client, db):
+    """Direct service call: key without hash must not write an idempotency row.
+
+    Kills `and`→`or` on the store guard (HTTP always pairs key+hash).
+    """
+    from app.identity.schemas import UserContext
+    from app.prior_auth.idempotency import IdempotencyRecord, get_record
+    from app.prior_auth.schemas import SubmitPriorAuthIn
+    from app.prior_auth.services.submit import submit_prior_auth
+    from sqlalchemy import func, select
+
+    from tests.conftest import valid_submit_body
+
+    office = client.seed["office"]
+    ctx = UserContext(
+        user_id=office.id,
+        role=office.role,
+        practice_id=office.practice_id,
+        email=office.email,
+    )
+    body = SubmitPriorAuthIn.model_validate(valid_submit_body(client.seed))
+    request = submit_prior_auth(
+        db,
+        ctx,
+        body,
+        idempotency_key="no-hash-key",
+        request_hash=None,
+    )
+    assert request.id is not None
+    assert get_record(db, office.practice_id, "no-hash-key") is None
+    count = db.scalar(select(func.count()).select_from(IdempotencyRecord))
+    assert count == 0
+
+
 def test_integrity_error_orphan_key_reraises(client, db, monkeypatch: pytest.MonkeyPatch):
     """key set but practice_id missing → request_hash stays None → re-raise."""
     import uuid
