@@ -19,11 +19,11 @@ from tests.conftest import (
 
 
 def test_user_role_people_names():
-    assert "patient" in UserRole.member.people_name.lower()
-    assert "doctor" in UserRole.provider_office.people_name.lower()
-    assert "physician" in UserRole.reviewer.people_name.lower()
-    assert "moving" in UserRole.ops_admin.people_name.lower()
-    assert "compliance" in UserRole.auditor.people_name.lower()
+    assert UserRole.member.people_name == "patient"
+    assert UserRole.provider_office.people_name == "doctors' office"
+    assert UserRole.reviewer.people_name == "nurse or physician"
+    assert UserRole.ops_admin.people_name == "operations admin"
+    assert UserRole.auditor.people_name == "auditor"
 
 
 def test_seed_jwt_authorizes_protected_list(client: TestClient):

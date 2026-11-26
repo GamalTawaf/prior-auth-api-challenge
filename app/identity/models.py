@@ -10,7 +10,11 @@ from app.db import Base
 
 
 class UserRole(enum.StrEnum):
-    """API actor roles. Wire strings stay stable; see ``people_name`` for humans."""
+    """API actor roles. Wire values stay stable for JWT/RBAC.
+
+    Use ``people_name`` only in human-facing prose (emails, OpenAPI narrative).
+    Do not put it in JSON field names, audit payloads, or role wire values.
+    """
 
     provider_office = "provider_office"
     reviewer = "reviewer"
@@ -20,17 +24,18 @@ class UserRole(enum.StrEnum):
 
     @property
     def people_name(self) -> str:
+        """Short plain-language label for people-facing copy."""
         return {
-            UserRole.provider_office: "Provider office — doctors' office submitting for patients",
-            UserRole.reviewer: "Reviewer — nurse or physician who decides requests",
-            UserRole.ops_admin: "Operations admin — keeps the work moving",
-            UserRole.member: "Member — our patient",
-            UserRole.auditor: "Auditor — read-only compliance viewer",
+            UserRole.provider_office: "doctors' office",
+            UserRole.reviewer: "nurse or physician",
+            UserRole.ops_admin: "operations admin",
+            UserRole.member: "patient",
+            UserRole.auditor: "auditor",
         }[self]
 
 
 class User(Base):
-    """Signed-in actor (office staff, reviewer, ops, auditor, or patient portal user)."""
+    """Signed-in actor (office staff, reviewer, ops, auditor, or member portal user)."""
 
     __tablename__ = "users"
     __table_args__ = (

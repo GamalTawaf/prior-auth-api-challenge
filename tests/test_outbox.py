@@ -63,7 +63,9 @@ def test_decide_enqueues_pending_outbox(client: TestClient, db: Session):
     assert "Denied" in email_body
     assert member_ext in email_body
     assert str(body["uuid"]) in email_body
-    assert "A reviewer has decided" in email_body
+    assert "nurse or physician has decided" in email_body
+    assert "Patient:" in email_body
+    assert "Member:" not in email_body
 
 
 def test_worker_mocked_send_marks_sent(client: TestClient, db: Session):
@@ -163,8 +165,10 @@ def test_render_body_uses_member_id_when_no_member():
     request.procedures = [proc]
     subject = render_decision_notice_subject(request, None)
     text = render_decision_notice_body(request, None)
-    assert subject == "Prior authorization decided for member mid"
-    assert "Member: mid" in text
+    assert subject == "Prior authorization decided for patient mid"
+    assert "Patient: mid" in text
+    assert "nurse or physician has decided" in text
+    assert "doctors' office" in text
     assert "• 99213 — Approved" in text
     assert "Clinical notes and denial reasons are not included" in text
 
