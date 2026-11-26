@@ -50,9 +50,10 @@ def test_decide_enqueues_pending_outbox(client: TestClient, db: Session):
     assert event.status == OutboxStatus.pending
     assert event.attempts == 0
     assert event.payload["to"] == client.seed["practice"].notification_email
-    member_ext = client.seed["member"].external_id
+    member = client.seed["member"]
     assert "Prior authorization decided" in event.payload["subject"]
-    assert member_ext in event.payload["subject"]
+    assert member.full_name in event.payload["subject"]
+    assert member.external_id in event.payload["subject"]
     assert str(body["uuid"]) not in event.payload["subject"]
     email_body = event.payload["body"]
     assert "secret note" not in email_body
@@ -61,10 +62,11 @@ def test_decide_enqueues_pending_outbox(client: TestClient, db: Session):
     assert "denial_reason" not in email_body
     assert "Approved" in email_body
     assert "Denied" in email_body
-    assert member_ext in email_body
+    assert member.full_name in email_body
+    assert member.external_id in email_body
     assert str(body["uuid"]) in email_body
     assert "nurse or physician has decided" in email_body
-    assert "Patient:" in email_body
+    assert f"Patient: {member.full_name} ({member.external_id})" in email_body
     assert "Member:" not in email_body
 
 
