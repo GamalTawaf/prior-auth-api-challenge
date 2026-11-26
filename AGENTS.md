@@ -22,6 +22,7 @@ Prior Authorization API take-home (Oxbridge Health). Durable Python + PostgreSQL
 - **Verification** — `./scripts/gates.sh` (and feature verify) before claiming done; update `harness/progress.md` / handoff if state changes
 - **Versions** — Python 3.15 + Postgres 19; latest stable PyPI (no alphas/RCs; OTel instrumentations may be `0.xbY`). `uv` only: prod in `[project].dependencies`, test/lint in `[dependency-groups] dev`
 - **Never cut** — audit, RBAC, validation, plan-required tooling (uv, OTel, multi-stage Docker, mutmut, CI)
+- **Parallel agents → grit** — if 2+ agents may edit overlapping code, use [grit](https://github.com/rtk-ai/grit): `grit claim` → work only in `.grit/worktrees/<agent>/` → `grit done`. Reindex with `./scripts/grit_reindex.sh` after big tree changes (parks `.worktrees` / `.venv` / `mutants` — grit does not skip those top-level dirs). Single-agent / non-overlapping work: plain branch + PR is enough. **Alembic:** serialize migration heads even under grit (AST locks do not merge graphs). Main checkout must be clean before `grit done`.
 
 ## Coding & quality gates
 

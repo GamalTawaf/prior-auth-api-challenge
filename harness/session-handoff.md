@@ -20,6 +20,12 @@
 
 Plans (historical): `docs/plans/2026-11-24-prior-auth-api.md`, `docs/plans/2026-11-25-wishlist-outbox-maildev.md` (**shipped**).
 
+## Agent ops (keep short)
+
+- Prefer README Decisions + this handoff over re-reading full plans unless changing design.
+- **Parallel work:** use grit (`grit claim` → `.grit/worktrees/<agent>/` → `grit done`); `./scripts/grit_reindex.sh` after big tree changes. Serialize Alembic heads. See `AGENTS.md` § Working rules.
+- Still never commit to `main` — branch + PR only.
+
 ## Walkthrough
 
 1. State machine + matrices in README Decisions

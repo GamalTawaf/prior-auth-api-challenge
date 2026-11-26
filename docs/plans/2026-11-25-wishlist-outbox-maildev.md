@@ -157,7 +157,7 @@ Seed user `auditor@example.com` + token in seed output / Postman env.
 
 ## Execution note (historical)
 
-Features were landed as separate PRs (workload → outbox → auditor → idempotency → docs) with linear Alembic heads. Parallel-agent locking tooling is not part of the product surface.
+Features were landed as separate PRs (workload → outbox → auditor → idempotency → docs) with linear Alembic heads. For future parallel agents: grit + `./scripts/grit_reindex.sh` (see `AGENTS.md`); still serialize Alembic.
 
 ---
 
