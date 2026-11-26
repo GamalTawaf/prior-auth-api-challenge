@@ -227,13 +227,14 @@ Domain packages, thin services, no restating comments. Audit/RBAC/validation and
 ## Gates (commit + CI)
 
 ```bash
-./scripts/gates.sh                 # ruff format/check, call-style, fastapi compile, pytest
+./scripts/gates.sh                 # ruff, call-style, fastapi compile, postman fresh, pytest
 ./scripts/install_git_hooks.sh     # pre-commit runs gates with GATES_SKIP_TESTS=1
 ```
 
 - **ruff** — `ruff format --check` + `ruff check` (E/W/F/I/UP/B/SIM/C4/RUF)
 - **call-style** — no nested non-constructor calls and no `if`/`and`/`or`/lambda expressions inside function call arguments (`scripts/check_call_style.py`; nested-call rule applies to `app/` except models/schemas)
 - **fastapi compile** — `compileall` + `app.openapi()` + route callable inventory (`scripts/check_fastapi_compile.py`)
+- **postman fresh** — committed `postman/Prior_Auth_API*.json` match a fresh generate (`scripts/check_postman_collection.py`)
 
 Every CI step writes a pass/fail block to the GitHub Actions job summary.
 

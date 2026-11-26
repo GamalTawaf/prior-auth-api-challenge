@@ -15,4 +15,4 @@ exec ./scripts/gates.sh
 EOF
 chmod +x "$HOOK"
 echo "Installed pre-commit hook -> $HOOK"
-echo "Runs: ruff format/check, call-style, fastapi compile (skip pytest; CI runs full suite)"
+echo "Runs: ruff format/check, call-style, fastapi compile, postman fresh (skip pytest; CI runs full suite)"

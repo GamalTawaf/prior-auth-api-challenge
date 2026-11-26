@@ -59,6 +59,7 @@ run_step "ruff format check" uv run ruff format --check app tests scripts
 run_step "ruff lint" uv run ruff check app tests scripts
 run_step "call style (no nested calls/conditions in args)" uv run python scripts/check_call_style.py
 run_step "fastapi compile + OpenAPI" uv run python scripts/check_fastapi_compile.py
+run_step "postman collection fresh" uv run python scripts/check_postman_collection.py
 
 if [[ "${GATES_SKIP_TESTS:-0}" != "1" ]]; then
   run_step "pytest + coverage" \
