@@ -36,9 +36,54 @@ def field_errors_from_pydantic(errors: list[Any]) -> list[FieldError]:
 
 
 class ProblemBody(BaseModel):
+    """Partner-facing error envelope (422 intake, 400, and structured 409)."""
+
     detail: str
     errors: list[FieldError] = Field(default_factory=list)
     correlation_id: str | None = None
+
+
+# OpenAPI response fragments — keep Swagger aligned with conflict_handler / validation handlers.
+IDEMPOTENCY_KEY_REUSE_EXAMPLE = {
+    "detail": "Idempotency-Key was already used with a different request body",
+    "errors": [
+        {
+            "error_code": "idempotency_key_reuse",
+            "field": "Idempotency-Key",
+            "message": "Same Idempotency-Key must replay the same request body",
+        }
+    ],
+}
+
+OPENAPI_CONFLICT_RESPONSE: dict[int | str, dict[str, Any]] = {
+    409: {
+        "description": "Conflict (e.g. already claimed, invalid transition)",
+        "model": ProblemBody,
+    },
+}
+
+OPENAPI_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    400: {
+        "description": "Bad request (e.g. invalid Idempotency-Key)",
+        "model": ProblemBody,
+    },
+    409: {
+        "description": "Conflict (e.g. idempotency_key_reuse, already claimed)",
+        "model": ProblemBody,
+        "content": {
+            "application/json": {
+                "example": IDEMPOTENCY_KEY_REUSE_EXAMPLE,
+            }
+        },
+    },
+    422: {
+        "description": (
+            "Validation failed — `errors[]` with `error_code` / `field` / `message`; "
+            "submit may include `correlation_id` for support lookup"
+        ),
+        "model": ProblemBody,
+    },
+}
 
 
 class ValidationFailure(Exception):

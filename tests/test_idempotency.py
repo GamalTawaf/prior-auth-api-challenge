@@ -82,6 +82,33 @@ def test_openapi_documents_idempotency_key_header(client):
     assert header.get("required") is not True
 
 
+def test_openapi_documents_problem_body_for_submit_errors(client):
+    """Swagger must match live ConflictError / validation JSON (not HTTPValidationError)."""
+    spec = client.app.openapi()
+    schemas = spec["components"]["schemas"]
+    assert "ProblemBody" in schemas
+    assert "FieldError" in schemas
+    problem = schemas["ProblemBody"]["properties"]
+    assert "detail" in problem
+    assert "errors" in problem
+    assert "correlation_id" in problem
+    field_error = schemas["FieldError"]["properties"]
+    assert set(field_error) >= {"error_code", "field", "message"}
+
+    post = spec["paths"]["/v1/prior-auths"]["post"]
+    for code in ("400", "409", "422"):
+        assert code in post["responses"]
+        content = post["responses"][code]["content"]["application/json"]
+        ref = content["schema"].get("$ref", "")
+        assert ref.endswith("/ProblemBody"), (
+            f"{code} should use ProblemBody, got {content['schema']}"
+        )
+
+    example = post["responses"]["409"]["content"]["application/json"].get("example")
+    assert example is not None
+    assert example["errors"][0]["error_code"] == "idempotency_key_reuse"
+
+
 def test_no_header_still_works_alongside_keyed(client):
     keyed = submit_with_idempotency_key(client, "solo-key")
     plain = submit_as_office(client)
