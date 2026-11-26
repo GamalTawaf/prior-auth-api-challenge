@@ -20,8 +20,18 @@ from app.shared.errors import (
     request_validation_handler,
     validation_failure_handler,
 )
-from app.shared.middleware import LimitRequestBodyMiddleware
+from app.shared.middleware import TRACE_ID_HEADER, LimitRequestBodyMiddleware, TraceIdMiddleware
 from app.telemetry import setup_telemetry
+
+_TRACE_ID_OPENAPI = {
+    TRACE_ID_HEADER: {
+        "description": (
+            "Request correlation id. Echoed from the request header when provided; "
+            "otherwise minted per request."
+        ),
+        "schema": {"type": "string", "example": "a1b2c3d4e5f64789a1b2c3d4e5f64789"},
+    }
+}
 
 
 @asynccontextmanager
@@ -40,11 +50,14 @@ app = FastAPI(
         "reviewers (nurses or physicians), operations admins, auditors. "
         "JSON/API field names stay technical (`member_id`, role enums); "
         "office emails use plain language. Primary keys are named `uuid`. "
-        "Errors use `error_code`, `field`, `message`, and optional `correlation_id`."
+        "Errors use `error_code`, `field`, `message`, and optional `correlation_id`. "
+        f"Every response includes `{TRACE_ID_HEADER}` (send the same header to correlate retries)."
     ),
 )
 
+# TraceId outermost so early LimitRequestBody 413s still get the header.
 app.add_middleware(LimitRequestBodyMiddleware)
+app.add_middleware(TraceIdMiddleware)
 app.add_exception_handler(ValidationFailure, validation_failure_handler)
 app.add_exception_handler(RequestValidationError, request_validation_handler)
 app.add_exception_handler(BadRequestError, bad_request_handler)
@@ -61,3 +74,33 @@ app.include_router(audit_router)
 @app.get("/v1/health", tags=["health"])
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def _build_openapi() -> dict:
+    from fastapi.openapi.utils import get_openapi
+
+    if app.openapi_schema is not None:
+        return app.openapi_schema
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    for path_item in schema.get("paths", {}).values():
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            responses = operation.get("responses")
+            if not isinstance(responses, dict):
+                continue
+            for response in responses.values():
+                if not isinstance(response, dict):
+                    continue
+                headers = response.setdefault("headers", {})
+                headers[TRACE_ID_HEADER] = _TRACE_ID_OPENAPI[TRACE_ID_HEADER]
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = _build_openapi  # type: ignore[method-assign]
