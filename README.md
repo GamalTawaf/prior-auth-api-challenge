@@ -133,9 +133,13 @@ the handoff from office → desk.
 Root logger gets `PiiRedactingFilter` (`app/log_pii.py`) during telemetry setup (API +
 worker). Redacts emails, JWTs / `Bearer` tokens, and values for `clinical_note`,
 `denial_reason`, `member_id`, `authorization`, `password`, `ssn`, `dob` /
-`date_of_birth`, `jwt_secret` in message text and log args. Does **not** scrub OTel
-span attributes or the audit table — those stay for ops/compliance. Member API
-redaction remains a separate contract.
+`date_of_birth`, `jwt_secret` in message text and log args.
+
+OTel export wraps span exporters with `ScrubbingSpanExporter`: `db.statement` and
+`db.query.text` run through the same field redaction plus SQL quoted-literal
+masking (`'…'` → `'[REDACTED]'`) before Tempo/console see them. Other span
+attributes and the audit table are unchanged. Member API redaction remains a
+separate contract.
 
 ### JWT secret — accepted risk, not production-ready
 

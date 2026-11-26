@@ -5,10 +5,17 @@ import logging
 from app.log_pii import (
     REDACTED,
     PiiRedactingFilter,
+    ScrubbingSpanExporter,
     _redact_value,
     install_pii_log_filter,
     redact_text,
+    scrub_db_statement,
+    scrub_span_attributes,
 )
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import SpanExportResult
+from opentelemetry.trace import SpanContext, SpanKind, TraceFlags
+from opentelemetry.trace.status import Status, StatusCode
 
 
 def test_redact_text_masks_email_jwt_bearer_and_fields():
@@ -75,3 +82,69 @@ def test_install_pii_log_filter_idempotent():
     after = sum(1 for f in root.filters if isinstance(f, PiiRedactingFilter))
     assert after == before
     assert before >= 1
+
+
+def test_scrub_db_statement_masks_sql_literals_and_fields():
+    sql = (
+        "INSERT INTO prior_auth.prior_auth_requests (clinical_note) VALUES ('patient has diabetes')"
+    )
+    out = scrub_db_statement(sql)
+    assert "patient has diabetes" not in out
+    assert f"'{REDACTED}'" in out
+
+
+def test_scrub_span_attributes_targets_statement_keys_only():
+    assert scrub_span_attributes(None) == {}
+    attrs = scrub_span_attributes(
+        {
+            "db.statement": "UPDATE t SET n='secret note'",
+            "db.query.text": "SELECT 'ssn-value' FROM t",
+            "db.system": "postgresql",
+            "http.method": "GET",
+        }
+    )
+    assert "secret note" not in attrs["db.statement"]
+    assert "ssn-value" not in attrs["db.query.text"]
+    assert attrs["db.system"] == "postgresql"
+    assert attrs["http.method"] == "GET"
+
+
+def test_scrubbing_span_exporter_delegates():
+    captured: list = []
+
+    class FakeExporter:
+        def export(self, spans):
+            captured.extend(spans)
+            return SpanExportResult.SUCCESS
+
+        def shutdown(self):
+            captured.append("shutdown")
+
+        def force_flush(self, timeout_millis: int = 30000):
+            captured.append(("flush", timeout_millis))
+            return True
+
+    ctx = SpanContext(
+        trace_id=1,
+        span_id=2,
+        is_remote=False,
+        trace_flags=TraceFlags(0x01),
+    )
+    status = Status(StatusCode.UNSET)
+    span = ReadableSpan(
+        name="SELECT",
+        context=ctx,
+        attributes={"db.statement": "SELECT 'phi-here'"},
+        kind=SpanKind.CLIENT,
+        status=status,
+    )
+    exporter = ScrubbingSpanExporter(FakeExporter())
+    result = exporter.export([span])
+    assert result is SpanExportResult.SUCCESS
+    assert len(captured) == 1
+    assert "phi-here" not in captured[0].attributes["db.statement"]
+    assert f"'{REDACTED}'" in captured[0].attributes["db.statement"]
+    exporter.force_flush(1000)
+    exporter.shutdown()
+    assert ("flush", 1000) in captured
+    assert "shutdown" in captured
