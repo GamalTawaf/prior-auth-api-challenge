@@ -8,6 +8,9 @@ cd "$ROOT"
 echo "=== Harness files present ==="
 test -f AGENTS.md
 test -f CLAUDE.md
+test -f .agent/README.md
+test -d .agent/rules
+test -d .agent/skills
 test -f harness/feature_list.json
 test -f harness/progress.md
 test -f harness/session-handoff.md

@@ -8,13 +8,15 @@ Prior Authorization API take-home (Oxbridge Health). Durable Python + PostgreSQL
 
 ## Startup
 
-1. `pwd` → repo root; load skill `.cursor/skills/session-start` when beginning a session
+1. `pwd` → repo root; load skill `.agent/skills/session-start` when beginning a session
 2. Read this file, `CLAUDE.md`, and README Decisions (domain changes only)
 3. `./init.sh` (repair baseline before any new work)
 4. `harness/session-handoff.md` for current system snapshot
 5. Plans are historical: `docs/plans/2026-11-24-prior-auth-api.md`, `docs/plans/2026-11-25-wishlist-outbox-maildev.md` (**shipped**)
 
-**On-demand skills:** `.cursor/skills/{session-start,open-pr,grit-parallel,stacked-prs}/`
+**Shared agent tree:** `.agent/` (rules + skills). Cursor auto-loads the same files via symlinks under `.cursor/`.
+
+**On-demand skills:** `.agent/skills/{session-start,open-pr,grit-parallel,stacked-prs}/`
 
 ## Working rules
 
@@ -28,7 +30,7 @@ Prior Authorization API take-home (Oxbridge Health). Durable Python + PostgreSQL
 
 ## Coding & quality gates
 
-Mirrored in `.cursor/rules/coding-gates.mdc`.
+Mirrored in `.agent/rules/coding-gates.mdc`.
 
 ### No duplication
 
@@ -54,6 +56,7 @@ Mirrored in `.cursor/rules/coding-gates.mdc`.
 ```
 .                         # entrypoints + runtime project files only
 ├── AGENTS.md / CLAUDE.md / init.sh
+├── .agent/               # portable rules + skills (Cursor: `.cursor/` symlinks)
 ├── harness/              # feature_list + progress + session-handoff (complete)
 ├── docs/plans/           # historical implementation plans (shipped)
 ├── app/
@@ -71,6 +74,7 @@ Mirrored in `.cursor/rules/coding-gates.mdc`.
 
 | Path | Role |
 |------|------|
+| `.agent/` | Portable rules + skills (any agent); Cursor via `.cursor/` symlinks |
 | `harness/feature_list.json` | Shipped feature inventory + evidence |
 | `harness/progress.md` | Compact shipped log |
 | `harness/session-handoff.md` | System snapshot + walkthrough |
@@ -102,7 +106,7 @@ This applies to docs, harness, and code alike. Hotfixes are not exempt.
 
 ### Risk lanes
 
-Exactly one label: `low` | `medium` | `high`. See `.cursor/rules/pr-lanes.mdc`.
+Exactly one label: `low` | `medium` | `high`. See `.agent/rules/pr-lanes.mdc`.
 
 1. Classify from the **full** diff; mixed → highest lane
 2. `./scripts/ensure_pr_labels.sh` if needed
