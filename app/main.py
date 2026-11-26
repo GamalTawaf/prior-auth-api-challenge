@@ -34,8 +34,12 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
     description=(
-        "Partner-facing prior authorization API. Errors use "
-        "`error_code`, `field`, `message`, and optional `correlation_id`."
+        "Partner-facing prior authorization API. "
+        "People: members (patients), provider offices (doctors' offices), "
+        "reviewers (nurses or physicians), operations admins, auditors. "
+        "JSON/API field names stay technical (`member_id`, role enums); "
+        "office emails use plain language. Primary keys are named `uuid`. "
+        "Errors use `error_code`, `field`, `message`, and optional `correlation_id`."
     ),
 )
 

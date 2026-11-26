@@ -56,7 +56,7 @@ OK=$(curl -s -X POST "$BASE_URL/v1/prior-auths" \
   -H "Idempotency-Key: $IDEM_KEY" \
   -d "$SUBMIT_BODY")
 echo "$OK"
-RID=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['id'])" "$OK")
+RID=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['uuid'])" "$OK")
 
 echo "== 4) Idempotency-Key replay (same key+body → same id) =="
 REPLAY=$(curl -s -X POST "$BASE_URL/v1/prior-auths" \
@@ -64,7 +64,7 @@ REPLAY=$(curl -s -X POST "$BASE_URL/v1/prior-auths" \
   -H "Idempotency-Key: $IDEM_KEY" \
   -d "$SUBMIT_BODY")
 echo "$REPLAY"
-python3 -c "import json,sys; a=json.loads(sys.argv[1]); b=json.loads(sys.argv[2]); assert a['id']==b['id'], (a['id'], b['id']); print('idempotency replay OK', a['id'])" "$OK" "$REPLAY"
+python3 -c "import json,sys; a=json.loads(sys.argv[1]); b=json.loads(sys.argv[2]); assert a['uuid']==b['uuid'], (a['uuid'], b['uuid']); print('idempotency replay OK', a['uuid'])" "$OK" "$REPLAY"
 
 echo "== 5) claim =="
 CLAIM=$(curl -sf -X POST -H "Authorization: Bearer $REVIEWER_TOKEN" \
@@ -84,13 +84,13 @@ echo "== 7) COI claim =="
 OK2=$(curl -s -X POST "$BASE_URL/v1/prior-auths" \
   -H "Authorization: Bearer $OFFICE_TOKEN" -H "Content-Type: application/json" \
   -d "{\"member_id\":\"$MEMBER_ID\",\"diagnosis_icd10\":\"J06.9\",\"date_of_service\":\"$TODAY\",\"procedures\":[{\"code\":\"99214\",\"units\":1}]}")
-RID2=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['id'])" "$OK2")
+RID2=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['uuid'])" "$OK2")
 curl -s -o /dev/null -w "coi_claim=%{http_code}\n" -X POST \
   -H "Authorization: Bearer $REVIEWER_COI_TOKEN" \
   "$BASE_URL/v1/prior-auths/$RID2/claim"
 
 echo "== 8) decide =="
-PROC=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['procedures'][0]['id'])" "$CLAIM")
+PROC=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['procedures'][0]['uuid'])" "$CLAIM")
 DECIDE=$(curl -sf -X POST -H "Authorization: Bearer $REVIEWER_TOKEN" -H "Content-Type: application/json" \
   -d "{\"outcomes\":[{\"procedure_id\":\"$PROC\",\"decision\":\"denied\",\"denial_reason\":\"Not medically necessary\"}]}" \
   "$BASE_URL/v1/prior-auths/$RID/decision")

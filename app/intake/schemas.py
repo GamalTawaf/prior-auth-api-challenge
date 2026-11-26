@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 class IntakeRejectionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
+    uuid: uuid.UUID
     correlation_id: str
     actor_user_id: uuid.UUID
     practice_id: uuid.UUID

@@ -63,17 +63,17 @@ def test_submit_boundaries_and_normalization(client: TestClient):
 def test_submit_coverage_and_link_filters(client: TestClient, db: Session):
     today = get_today()
     other = Practice(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         name="Elsewhere",
         notification_email="elsewhere@example.com",
     )
     db.add(other)
     db.flush()
     # Linked only to another practice → office must still get member_not_linked.
-    db.add(PatientPracticeLink(member_id=client.seed["unlinked"].id, practice_id=other.id))
+    db.add(PatientPracticeLink(member_id=client.seed["unlinked"].uuid, practice_id=other.uuid))
     db.flush()
     assert_has_error_code(
-        submit_as_office(client, member_id=str(client.seed["unlinked"].id)),
+        submit_as_office(client, member_id=str(client.seed["unlinked"].uuid)),
         "member_not_linked",
         field="member_id",
         message="Member is not linked to this practice",
@@ -81,7 +81,7 @@ def test_submit_coverage_and_link_filters(client: TestClient, db: Session):
 
     # Valid coverage on a different member must not satisfy this member's DOS.
     outsider = Member(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         external_id=f"O-{uuid.uuid4().hex[:6]}",
         full_name="Outsider",
     )
@@ -89,13 +89,13 @@ def test_submit_coverage_and_link_filters(client: TestClient, db: Session):
     db.flush()
     db.add(
         Coverage(
-            member_id=outsider.id,
+            member_id=outsider.uuid,
             payer_name="OtherPayer",
             effective_from=today - timedelta(days=1),
             effective_to=today + timedelta(days=30),
         )
     )
-    cov = db.scalars(select(Coverage).where(Coverage.member_id == client.seed["member"].id)).one()
+    cov = db.scalars(select(Coverage).where(Coverage.member_id == client.seed["member"].uuid)).one()
     cov.effective_to = today - timedelta(days=1)
     db.flush()
     assert_has_error_code(
@@ -144,18 +144,18 @@ def test_intake_reject_audit_payload(client: TestClient, db: Session):
     assert match.payload == {
         "correlation_id": cid,
         "fields": ["procedures[0].units"],
-        "practice_id": str(client.seed["practice"].id),
+        "practice_id": str(client.seed["practice"].uuid),
     }
 
 
 def test_submit_audit_payload_keys(client: TestClient):
     created = submit_ok(client)
-    audit = get_audit_as(client, created["id"])
+    audit = get_audit_as(client, created["uuid"])
     assert audit.status_code == 200
     submit_event = next(e for e in audit.json() if e["action"] == "submit")
     assert submit_event["payload"] == {
-        "request_id": created["id"],
-        "member_id": str(client.seed["member"].id),
+        "request_id": created["uuid"],
+        "member_id": str(client.seed["member"].uuid),
         "procedure_codes": ["99213"],
     }
 
@@ -163,18 +163,18 @@ def test_submit_audit_payload_keys(client: TestClient):
 def test_claim_conflict_detail_and_side_effects(client: TestClient):
     first = submit_ok(client)
     second = submit_ok(client)
-    claimed = claim_as(client, first["id"])
+    claimed = claim_as(client, first["uuid"])
     assert claimed.status_code == 200, claimed.text
     body = claimed.json()
     assert body["claimed_at"] is not None
     _aware(body["claimed_at"])
     assert body["status"] == "in_review"
 
-    again = claim_as(client, first["id"], role="reviewer2")
+    again = claim_as(client, first["uuid"], role="reviewer2")
     _assert_detail(again, 409, "Request already claimed or not in submitted state")
 
     # Claim must be id-scoped: peer submitted request stays unclaimed.
-    peer = get_as(client, second["id"], "reviewer")
+    peer = get_as(client, second["uuid"], "reviewer")
     assert peer.status_code == 200
     assert peer.json()["claimed_by_user_id"] is None
     assert peer.json()["status"] == "submitted"
@@ -184,41 +184,41 @@ def test_claim_wrong_status_conflict(client: TestClient, db: Session):
     data = submit_and_claim(client)
     decide_as(
         client,
-        data["id"],
-        [{"procedure_id": data["procedures"][0]["id"], "decision": "approved"}],
+        data["uuid"],
+        [{"procedure_id": data["procedures"][0]["uuid"], "decision": "approved"}],
     )
     # Clear claim fields so only the status predicate blocks a second claim.
-    req = db.get(PriorAuthRequest, uuid.UUID(data["id"]))
+    req = db.get(PriorAuthRequest, uuid.UUID(data["uuid"]))
     assert req is not None
     req.claimed_by_user_id = None
     req.claimed_at = None
     db.flush()
-    stolen = claim_as(client, data["id"], role="reviewer2")
+    stolen = claim_as(client, data["uuid"], role="reviewer2")
     _assert_detail(stolen, 409, "Request already claimed or not in submitted state")
 
 
 def test_claim_requires_unclaimed_even_if_submitted(client: TestClient, db: Session):
     data = submit_ok(client)
-    req = db.get(PriorAuthRequest, uuid.UUID(data["id"]))
+    req = db.get(PriorAuthRequest, uuid.UUID(data["uuid"]))
     assert req is not None
     # Inconsistent: still submitted but already has a holder — unclaimed predicate must block.
-    req.claimed_by_user_id = client.seed["reviewer"].id
+    req.claimed_by_user_id = client.seed["reviewer"].uuid
     db.flush()
-    stolen = claim_as(client, data["id"], role="reviewer2")
+    stolen = claim_as(client, data["uuid"], role="reviewer2")
     _assert_detail(stolen, 409, "Request already claimed or not in submitted state")
 
 
 def test_decide_details_denial_and_audit(client: TestClient):
     data = submit_and_claim(client, procedures=TWO_PROCEDURES)
-    rid = data["id"]
+    rid = data["uuid"]
     p0, p1 = data["procedures"]
 
     not_holder = decide_as(
         client,
         rid,
         [
-            {"procedure_id": p0["id"], "decision": "approved"},
-            {"procedure_id": p1["id"], "decision": "approved"},
+            {"procedure_id": p0["uuid"], "decision": "approved"},
+            {"procedure_id": p1["uuid"], "decision": "approved"},
         ],
         role="reviewer2",
     )
@@ -228,14 +228,14 @@ def test_decide_details_denial_and_audit(client: TestClient):
         client,
         rid,
         [
-            {"procedure_id": p0["id"], "decision": "maybe"},
-            {"procedure_id": p1["id"], "decision": "approved"},
+            {"procedure_id": p0["uuid"], "decision": "maybe"},
+            {"procedure_id": p1["uuid"], "decision": "approved"},
         ],
     )
     assert_has_error_code(
         bad,
         "invalid_decision",
-        field=f"outcomes[{p0['id']}].decision",
+        field=f"outcomes[{p0['uuid']}].decision",
         message="Decision must be approved or denied",
     )
 
@@ -243,9 +243,9 @@ def test_decide_details_denial_and_audit(client: TestClient):
         client,
         rid,
         [
-            {"procedure_id": p0["id"], "decision": "approved"},
+            {"procedure_id": p0["uuid"], "decision": "approved"},
             {
-                "procedure_id": p1["id"],
+                "procedure_id": p1["uuid"],
                 "decision": "denied",
                 "denial_reason": "  Not medically necessary  ",
             },
@@ -255,19 +255,19 @@ def test_decide_details_denial_and_audit(client: TestClient):
     body = decided.json()
     assert body["decided_at"] is not None
     _aware(body["decided_at"])
-    by_id = {p["id"]: p for p in body["procedures"]}
-    assert by_id[p0["id"]]["decision"] == "approved"
-    assert by_id[p0["id"]]["denial_reason"] is None
-    assert by_id[p1["id"]]["decision"] == "denied"
-    assert by_id[p1["id"]]["denial_reason"] == "Not medically necessary"
+    by_id = {p["uuid"]: p for p in body["procedures"]}
+    assert by_id[p0["uuid"]]["decision"] == "approved"
+    assert by_id[p0["uuid"]]["denial_reason"] is None
+    assert by_id[p1["uuid"]]["decision"] == "denied"
+    assert by_id[p1["uuid"]]["denial_reason"] == "Not medically necessary"
 
     again = decide_as(
         client,
         rid,
         [
-            {"procedure_id": p0["id"], "decision": "approved"},
+            {"procedure_id": p0["uuid"], "decision": "approved"},
             {
-                "procedure_id": p1["id"],
+                "procedure_id": p1["uuid"],
                 "decision": "denied",
                 "denial_reason": "x",
             },
@@ -279,21 +279,21 @@ def test_decide_details_denial_and_audit(client: TestClient):
     decide_event = next(e for e in audit if e["action"] == "decide")
     assert decide_event["payload"]["request_id"] == rid
     outcomes = decide_event["payload"]["outcomes"]
-    assert {o["procedure_id"] for o in outcomes} == {p0["id"], p1["id"]}
+    assert {o["procedure_id"] for o in outcomes} == {p0["uuid"], p1["uuid"]}
     assert all("decision" in o and "denial_reason" in o for o in outcomes)
 
 
 def test_decide_coi_detail(client: TestClient, db: Session):
     data = submit_and_claim(client)
     # Bypass reassign COI guard so the conflict surfaces on decide.
-    req = db.get(PriorAuthRequest, uuid.UUID(data["id"]))
+    req = db.get(PriorAuthRequest, uuid.UUID(data["uuid"]))
     assert req is not None
-    req.claimed_by_user_id = client.seed["reviewer_coi"].id
+    req.claimed_by_user_id = client.seed["reviewer_coi"].uuid
     db.flush()
     response = decide_as(
         client,
-        data["id"],
-        [{"procedure_id": data["procedures"][0]["id"], "decision": "approved"}],
+        data["uuid"],
+        [{"procedure_id": data["procedures"][0]["uuid"], "decision": "approved"}],
         role="reviewer_coi",
     )
     _assert_detail(response, 403, "Conflict of interest with this member")
@@ -301,19 +301,19 @@ def test_decide_coi_detail(client: TestClient, db: Session):
 
 def test_reassign_details_and_audit(client: TestClient, db: Session):
     data = submit_and_claim(client)
-    rid = data["id"]
-    from_id = str(client.seed["reviewer"].id)
-    to_id = str(client.seed["reviewer2"].id)
+    rid = data["uuid"]
+    from_id = str(client.seed["reviewer"].uuid)
+    to_id = str(client.seed["reviewer2"].uuid)
 
     # Second in-review request: UPDATE must be id-scoped.
     peer = submit_ok(client)
-    assert claim_as(client, peer["id"]).status_code == 200
-    peer_holder = get_as(client, peer["id"], "reviewer").json()["claimed_by_user_id"]
+    assert claim_as(client, peer["uuid"]).status_code == 200
+    peer_holder = get_as(client, peer["uuid"], "reviewer").json()["claimed_by_user_id"]
 
-    bad_state = reassign_as(client, submit_ok(client)["id"], client.seed["reviewer"].id)
+    bad_state = reassign_as(client, submit_ok(client)["uuid"], client.seed["reviewer"].uuid)
     _assert_detail(bad_state, 409, "Request must be in_review to reassign")
 
-    bad_rev = reassign_as(client, rid, client.seed["office"].id)
+    bad_rev = reassign_as(client, rid, client.seed["office"].uuid)
     assert_has_error_code(
         bad_rev,
         "invalid_reviewer",
@@ -327,7 +327,7 @@ def test_reassign_details_and_audit(client: TestClient, db: Session):
     req.claimed_at = datetime(2020, 1, 1, tzinfo=UTC)
     db.flush()
 
-    moved = reassign_as(client, rid, client.seed["reviewer2"].id)
+    moved = reassign_as(client, rid, client.seed["reviewer2"].uuid)
     assert moved.status_code == 200, moved.text
     body = moved.json()
     assert body["claimed_by_user_id"] == to_id
@@ -335,7 +335,7 @@ def test_reassign_details_and_audit(client: TestClient, db: Session):
     assert not body["claimed_at"].startswith("2020-01-01")
     _aware(body["claimed_at"])
 
-    peer_after = get_as(client, peer["id"], "reviewer").json()
+    peer_after = get_as(client, peer["uuid"], "reviewer").json()
     assert peer_after["claimed_by_user_id"] == peer_holder
 
     audit = get_audit_as(client, rid).json()
@@ -350,8 +350,8 @@ def test_reassign_details_and_audit(client: TestClient, db: Session):
     decide_as(
         client,
         rid,
-        [{"procedure_id": body["procedures"][0]["id"], "decision": "approved"}],
+        [{"procedure_id": body["procedures"][0]["uuid"], "decision": "approved"}],
         role="reviewer2",
     )
-    terminal = reassign_as(client, rid, client.seed["reviewer"].id)
+    terminal = reassign_as(client, rid, client.seed["reviewer"].uuid)
     _assert_detail(terminal, 409, "Cannot reassign a decided request")

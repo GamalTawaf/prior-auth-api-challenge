@@ -22,7 +22,7 @@ def decide_request(db: Session, reviewer: UserContext, request_id: uuid.UUID, bo
     if has_coi(db, reviewer.user_id, request.member_id):
         raise ForbiddenError("Conflict of interest with this member")
 
-    by_id = {p.id: p for p in request.procedures}
+    by_id = {p.uuid: p for p in request.procedures}
     outcome_ids = [o.procedure_id for o in body.outcomes]
     errors: list[FieldError] = []
     if len(outcome_ids) != len(by_id) or set(outcome_ids) != set(by_id):

@@ -147,77 +147,77 @@ def db(engine) -> Generator[Session]:
 @pytest.fixture
 def seed_data(db: Session) -> dict:
     practice = Practice(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         name="Test Practice",
         notification_email="notify-test@example.com",
     )
     member = Member(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         external_id=f"M-{uuid.uuid4().hex[:8]}",
         full_name="Pat Member",
     )
     unlinked = Member(
-        id=uuid.uuid4(), external_id=f"U-{uuid.uuid4().hex[:8]}", full_name="Unlinked"
+        uuid=uuid.uuid4(), external_id=f"U-{uuid.uuid4().hex[:8]}", full_name="Unlinked"
     )
     db.add_all([practice, member, unlinked])
     db.flush()
-    db.add(PatientPracticeLink(member_id=member.id, practice_id=practice.id))
+    db.add(PatientPracticeLink(member_id=member.uuid, practice_id=practice.uuid))
     today = get_today()
     db.add(
         Coverage(
-            member_id=member.id,
+            member_id=member.uuid,
             payer_name="Payer",
             effective_from=today - timedelta(days=10),
             effective_to=today + timedelta(days=400),
         )
     )
     office = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"office-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.provider_office,
-        practice_id=practice.id,
+        practice_id=practice.uuid,
         display_name="Office",
     )
     reviewer = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"rev-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.reviewer,
         display_name="Reviewer",
     )
     reviewer2 = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"rev2-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.reviewer,
         display_name="Reviewer2",
     )
     reviewer_coi = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"coi-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.reviewer,
         display_name="COI Reviewer",
     )
     admin = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"admin-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.ops_admin,
         display_name="Admin",
     )
     auditor = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"auditor-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.auditor,
         display_name="Auditor",
     )
     member_user = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"mem-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.member,
-        member_id=member.id,
+        member_id=member.uuid,
         display_name="Member",
     )
     db.add_all([office, reviewer, reviewer2, reviewer_coi, admin, auditor, member_user])
     db.flush()
-    db.add(ReviewerMemberConflict(reviewer_user_id=reviewer_coi.id, member_id=member.id))
+    db.add(ReviewerMemberConflict(reviewer_user_id=reviewer_coi.uuid, member_id=member.uuid))
     db.flush()
     return {
         "practice": practice,
@@ -270,7 +270,7 @@ def role_headers(client: TestClient, role: str) -> dict[str, str]:
 
 def valid_submit_body(seed: dict, **overrides) -> dict:
     body = {
-        "member_id": str(seed["member"].id),
+        "member_id": str(seed["member"].uuid),
         "diagnosis_icd10": "J06.9",
         "date_of_service": get_today().isoformat(),
         "clinical_note": "Patient needs procedure",
@@ -359,13 +359,13 @@ def reassign_as(client: TestClient, request_id: str, reviewer_id, role: str = "a
 
 def submit_and_claim(client: TestClient, **overrides) -> dict:
     created = submit_ok(client, **overrides)
-    claimed = claim_as(client, created["id"])
+    claimed = claim_as(client, created["uuid"])
     assert claimed.status_code == 200, claimed.text
     return claimed.json()
 
 
 def approve_all_outcomes(procedures: list[dict]) -> list[dict]:
-    return [{"procedure_id": p["id"], "decision": "approved"} for p in procedures]
+    return [{"procedure_id": p["uuid"], "decision": "approved"} for p in procedures]
 
 
 def get_intake_rejection_as(client: TestClient, correlation_id: str, role: str = "office"):
@@ -405,17 +405,17 @@ def race_attempt(fn):
 
 def make_other_office(db: Session, *, name: str = "Other") -> User:
     practice = Practice(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         name=name,
         notification_email=f"notify-{uuid.uuid4().hex[:6]}@ex.com",
     )
     db.add(practice)
     db.flush()
     office = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"other-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.provider_office,
-        practice_id=practice.id,
+        practice_id=practice.uuid,
         display_name=name,
     )
     db.add(office)
@@ -450,54 +450,54 @@ def seed_race_fixture(
     SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     with SessionLocal() as db:
         practice = Practice(
-            id=uuid.uuid4(),
+            uuid=uuid.uuid4(),
             name=f"{name} Practice",
             notification_email=f"notify-{uuid.uuid4().hex[:6]}@ex.com",
         )
         member = Member(
-            id=uuid.uuid4(),
+            uuid=uuid.uuid4(),
             external_id=f"{name[0]}-{uuid.uuid4().hex[:6]}",
             full_name=name,
         )
         db.add_all([practice, member])
         db.flush()
-        db.add(PatientPracticeLink(member_id=member.id, practice_id=practice.id))
+        db.add(PatientPracticeLink(member_id=member.uuid, practice_id=practice.uuid))
         today = get_today()
         db.add(
             Coverage(
-                member_id=member.id,
+                member_id=member.uuid,
                 payer_name="P",
                 effective_from=today - timedelta(days=1),
                 effective_to=today + timedelta(days=30),
             )
         )
         office = User(
-            id=uuid.uuid4(),
+            uuid=uuid.uuid4(),
             email=f"o-{uuid.uuid4().hex[:6]}@ex.com",
             role=UserRole.provider_office,
-            practice_id=practice.id,
+            practice_id=practice.uuid,
             display_name="O",
         )
         r1 = User(
-            id=uuid.uuid4(),
+            uuid=uuid.uuid4(),
             email=f"r1-{uuid.uuid4().hex[:6]}@ex.com",
             role=UserRole.reviewer,
             display_name="R1",
         )
         r2 = User(
-            id=uuid.uuid4(),
+            uuid=uuid.uuid4(),
             email=f"r2-{uuid.uuid4().hex[:6]}@ex.com",
             role=UserRole.reviewer,
             display_name="R2",
         )
         db.add_all([office, r1, r2])
         db.flush()
-        claimed_by = r1.id if claimed_by_reviewer else None
+        claimed_by = r1.uuid if claimed_by_reviewer else None
         request = PriorAuthRequest(
-            id=uuid.uuid4(),
-            member_id=member.id,
-            practice_id=practice.id,
-            submitted_by_user_id=office.id,
+            uuid=uuid.uuid4(),
+            member_id=member.uuid,
+            practice_id=practice.uuid,
+            submitted_by_user_id=office.uuid,
             diagnosis_icd10="J06.9",
             date_of_service=today,
             status=status,
@@ -509,11 +509,11 @@ def seed_race_fixture(
         db.commit()
         return {
             "session_factory": SessionLocal,
-            "request_id": request.id,
-            "procedure_id": proc.id,
-            "reviewer1_id": r1.id,
-            "reviewer2_id": r2.id,
-            "office_id": office.id,
+            "request_id": request.uuid,
+            "procedure_id": proc.uuid,
+            "reviewer1_id": r1.uuid,
+            "reviewer2_id": r2.uuid,
+            "office_id": office.uuid,
         }
 
 

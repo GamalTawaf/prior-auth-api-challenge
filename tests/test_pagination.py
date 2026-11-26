@@ -21,13 +21,13 @@ def test_list_endpoints_honor_limit_and_after_id(client: TestClient, path: str, 
     headers = role_headers(client, role)
     full = client.get(path, headers=headers, params={"limit": 100})
     assert full.status_code == 200, full.text
-    all_ids = [row["id"] for row in full.json()]
+    all_ids = [row["uuid"] for row in full.json()]
     assert len(all_ids) >= 3
 
     first = client.get(path, headers=headers, params={"limit": 1})
     assert first.status_code == 200, first.text
     assert len(first.json()) == 1
-    assert first.json()[0]["id"] == all_ids[0]
+    assert first.json()[0]["uuid"] == all_ids[0]
 
     second = client.get(
         path,
@@ -36,7 +36,7 @@ def test_list_endpoints_honor_limit_and_after_id(client: TestClient, path: str, 
     )
     assert second.status_code == 200, second.text
     assert len(second.json()) == 1
-    assert second.json()[0]["id"] == all_ids[1]
+    assert second.json()[0]["uuid"] == all_ids[1]
 
     page = client.get(
         path,
@@ -44,7 +44,7 @@ def test_list_endpoints_honor_limit_and_after_id(client: TestClient, path: str, 
         params={"limit": 2, "after": all_ids[0]},
     )
     assert page.status_code == 200, page.text
-    assert [row["id"] for row in page.json()] == all_ids[1:3]
+    assert [row["uuid"] for row in page.json()] == all_ids[1:3]
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,5 @@
 import enum
-import uuid
+import uuid as uuid_lib
 from datetime import date, datetime
 
 from sqlalchemy import (
@@ -33,6 +33,8 @@ class ProcedureDecision(enum.StrEnum):
 
 
 class PriorAuthRequest(Base):
+    """Accepted prior-auth case in the review workflow (not an intake rejection)."""
+
     __tablename__ = "prior_auth_requests"
     __table_args__ = (
         CheckConstraint(
@@ -52,14 +54,16 @@ class PriorAuthRequest(Base):
         Index("ix_pa_practice_created", "practice_id", "created_at"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    member_id: Mapped[uuid.UUID] = mapped_column(
+    uuid: Mapped[uuid_lib.UUID] = mapped_column(
+        "id", UUID(as_uuid=True), primary_key=True, default=uuid_lib.uuid4
+    )
+    member_id: Mapped[uuid_lib.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("members.id"), nullable=False
     )
-    practice_id: Mapped[uuid.UUID] = mapped_column(
+    practice_id: Mapped[uuid_lib.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("practices.id"), nullable=False
     )
-    submitted_by_user_id: Mapped[uuid.UUID] = mapped_column(
+    submitted_by_user_id: Mapped[uuid_lib.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     diagnosis_icd10: Mapped[str] = mapped_column(String(16), nullable=False)
@@ -68,11 +72,11 @@ class PriorAuthRequest(Base):
     status: Mapped[RequestStatus] = mapped_column(
         Enum(RequestStatus, name="request_status"), nullable=False
     )
-    claimed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+    claimed_by_user_id: Mapped[uuid_lib.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    decided_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+    decided_by_user_id: Mapped[uuid_lib.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -86,6 +90,8 @@ class PriorAuthRequest(Base):
 
 
 class PriorAuthProcedure(Base):
+    """One CPT/HCPCS line on a prior-auth request."""
+
     __tablename__ = "prior_auth_procedures"
     __table_args__ = (
         CheckConstraint("units >= 1", name="ck_procedure_units_at_least_one"),
@@ -95,8 +101,10 @@ class PriorAuthProcedure(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    request_id: Mapped[uuid.UUID] = mapped_column(
+    uuid: Mapped[uuid_lib.UUID] = mapped_column(
+        "id", UUID(as_uuid=True), primary_key=True, default=uuid_lib.uuid4
+    )
+    request_id: Mapped[uuid_lib.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("prior_auth_requests.id"), nullable=False, index=True
     )
     code: Mapped[str] = mapped_column(String(16), nullable=False)

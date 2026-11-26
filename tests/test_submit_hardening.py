@@ -41,14 +41,14 @@ def test_schema_type_error_uses_field_error_contract_and_persists(client: TestCl
     row = db.scalars(
         select(IntakeRejection).where(IntakeRejection.correlation_id == payload["correlation_id"])
     ).one()
-    assert row.practice_id == client.seed["practice"].id
+    assert row.practice_id == client.seed["practice"].uuid
     assert any(e["error_code"] == "invalid_type" for e in row.field_errors)
 
 
 def test_unlinked_member_does_not_leak_coverage(client: TestClient, db: Session):
     """Coverage must not run for unlinked members (error-set must not encode coverage)."""
     today = get_today()
-    unlinked_id = str(client.seed["unlinked"].id)
+    unlinked_id = str(client.seed["unlinked"].uuid)
 
     without = submit_as_office(client, member_id=unlinked_id)
     payload_without = assert_has_error_code(
@@ -61,7 +61,7 @@ def test_unlinked_member_does_not_leak_coverage(client: TestClient, db: Session)
 
     db.add(
         Coverage(
-            member_id=client.seed["unlinked"].id,
+            member_id=client.seed["unlinked"].uuid,
             payer_name="ProbePayer",
             effective_from=today,
             effective_to=today,
@@ -105,7 +105,7 @@ def test_oversized_body_rejected(client: TestClient):
             "Content-Type": "application/json",
         },
         content=(
-            f'{{"member_id":"{client.seed["member"].id}","diagnosis_icd10":"J06.9",'
+            f'{{"member_id":"{client.seed["member"].uuid}","diagnosis_icd10":"J06.9",'
             f'"date_of_service":"{get_today().isoformat()}","clinical_note":"{huge}",'
             f'"procedures":[{{"code":"99213","units":1}}]}}'
         ),
@@ -116,9 +116,9 @@ def test_oversized_body_rejected(client: TestClient):
 
 def test_decide_outcomes_max_length_rejected(client: TestClient):
     data = submit_and_claim(client)
-    pid = data["procedures"][0]["id"]
+    pid = data["procedures"][0]["uuid"]
     outcomes = [{"procedure_id": pid, "decision": "approved"} for _ in range(51)]
-    response = decide_as(client, data["id"], outcomes)
+    response = decide_as(client, data["uuid"], outcomes)
     assert_has_error_code(response, "invalid_type", field="outcomes")
 
 
@@ -162,7 +162,7 @@ def test_office_context_from_request_rejects_non_office(client: TestClient, db: 
 
     # Office without practice: schema 422 still shaped, but no IntakeRejection row.
     orphan = User(
-        id=uuid.uuid4(),
+        uuid=uuid.uuid4(),
         email=f"orphan-{uuid.uuid4().hex[:6]}@ex.com",
         role=UserRole.provider_office,
         practice_id=None,

@@ -4,7 +4,7 @@ from tests.conftest import get_intake_rejection_as, role_headers, submit_as_offi
 
 
 def test_support_lookup_by_correlation_id(client: TestClient):
-    failed = submit_as_office(client, member_id=str(client.seed["unlinked"].id))
+    failed = submit_as_office(client, member_id=str(client.seed["unlinked"].uuid))
     assert failed.status_code == 422
     cid = failed.json()["correlation_id"]
 

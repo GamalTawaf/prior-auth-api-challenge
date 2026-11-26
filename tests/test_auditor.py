@@ -17,7 +17,7 @@ from tests.conftest import (
 
 
 def test_auditor_reads_audit_and_admin_still_works(client: TestClient):
-    rid = submit_ok(client)["id"]
+    rid = submit_ok(client)["uuid"]
     claim_as(client, rid)
 
     auditor = get_audit_as(client, rid, role="auditor")
@@ -32,21 +32,21 @@ def test_auditor_reads_audit_and_admin_still_works(client: TestClient):
 
 
 def test_auditor_list_and_get_read_all(client: TestClient):
-    rid = submit_ok(client)["id"]
+    rid = submit_ok(client)["uuid"]
 
     listed = client.get("/v1/prior-auths", headers=role_headers(client, "auditor"))
     assert listed.status_code == 200, listed.text
-    assert any(r["id"] == rid for r in listed.json())
+    assert any(r["uuid"] == rid for r in listed.json())
 
     got = get_as(client, rid, "auditor")
     assert got.status_code == 200, got.text
-    assert got.json()["id"] == rid
+    assert got.json()["uuid"] == rid
 
 
 def test_auditor_forbidden_on_writes_and_restricted_reads(client: TestClient):
     data = submit_and_claim(client)
-    rid = data["id"]
-    procedure_id = data["procedures"][0]["id"]
+    rid = data["uuid"]
+    procedure_id = data["procedures"][0]["uuid"]
 
     submit = client.post(
         "/v1/prior-auths",
@@ -66,7 +66,7 @@ def test_auditor_forbidden_on_writes_and_restricted_reads(client: TestClient):
     )
     assert decide.status_code == 403, decide.text
 
-    reassign = reassign_as(client, rid, client.seed["reviewer"].id, role="auditor")
+    reassign = reassign_as(client, rid, client.seed["reviewer"].uuid, role="auditor")
     assert reassign.status_code == 403, reassign.text
 
     workload = workload_as(client, role="auditor")

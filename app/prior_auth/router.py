@@ -177,22 +177,22 @@ def reassign(
 
 @router.get("/v1/reviewers/workload", response_model=list[ReviewerWorkloadOut])
 def reviewers_workload(db: DbSession, _ctx: AdminUser) -> list[ReviewerWorkloadOut]:
-    claim_match = PriorAuthRequest.claimed_by_user_id == User.id
+    claim_match = PriorAuthRequest.claimed_by_user_id == User.uuid
     in_review = PriorAuthRequest.status == RequestStatus.in_review
     join_on = and_(claim_match, in_review)
-    open_count = func.count(PriorAuthRequest.id)
+    open_count = func.count(PriorAuthRequest.uuid)
     open_count_col = open_count.label("open_count")
     stmt = (
-        select(User.id, User.display_name, open_count_col)
+        select(User.uuid, User.display_name, open_count_col)
         .outerjoin(PriorAuthRequest, join_on)
         .where(User.role == UserRole.reviewer)
-        .group_by(User.id)
-        .order_by(User.display_name, User.id)
+        .group_by(User.uuid)
+        .order_by(User.display_name, User.uuid)
     )
     rows = db.execute(stmt).all()
     return [
         ReviewerWorkloadOut(
-            reviewer_id=row.id,
+            reviewer_id=row.uuid,
             display_name=row.display_name,
             open_count=row.open_count,
         )

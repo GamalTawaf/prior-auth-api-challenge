@@ -25,7 +25,7 @@ def test_workload_admin_lists_all_reviewers_at_zero(client: TestClient):
         (client.seed["reviewer_coi"], "COI Reviewer"),
     ]
     for user, name in expected:
-        row = by_id[str(user.id)]
+        row = by_id[str(user.uuid)]
         assert row["display_name"] == name
         assert row["open_count"] == 0
 
@@ -37,7 +37,7 @@ def test_workload_forbidden_for_non_admin(client: TestClient, role: str):
 
 
 def test_workload_increments_on_claim_decrements_on_decide(client: TestClient):
-    reviewer_id = str(client.seed["reviewer"].id)
+    reviewer_id = str(client.seed["reviewer"].uuid)
     before = _by_id(workload_as(client).json())
     assert before[reviewer_id]["open_count"] == 0
 
@@ -46,7 +46,7 @@ def test_workload_increments_on_claim_decrements_on_decide(client: TestClient):
     assert after_claim[reviewer_id]["open_count"] == 1
 
     outcomes = approve_all_outcomes(claimed["procedures"])
-    decided = decide_as(client, claimed["id"], outcomes)
+    decided = decide_as(client, claimed["uuid"], outcomes)
     assert decided.status_code == 200, decided.text
 
     after_decide = _by_id(workload_as(client).json())
@@ -56,13 +56,13 @@ def test_workload_increments_on_claim_decrements_on_decide(client: TestClient):
 def test_workload_counts_per_reviewer(client: TestClient):
     first = submit_ok(client)
     second = submit_ok(client)
-    assert claim_as(client, first["id"]).status_code == 200
-    assert claim_as(client, second["id"], role="reviewer2").status_code == 200
+    assert claim_as(client, first["uuid"]).status_code == 200
+    assert claim_as(client, second["uuid"], role="reviewer2").status_code == 200
 
     by_id = _by_id(workload_as(client).json())
-    assert by_id[str(client.seed["reviewer"].id)]["open_count"] == 1
-    assert by_id[str(client.seed["reviewer2"].id)]["open_count"] == 1
-    assert by_id[str(client.seed["reviewer_coi"].id)]["open_count"] == 0
+    assert by_id[str(client.seed["reviewer"].uuid)]["open_count"] == 1
+    assert by_id[str(client.seed["reviewer2"].uuid)]["open_count"] == 1
+    assert by_id[str(client.seed["reviewer_coi"].uuid)]["open_count"] == 0
 
 
 def test_workload_requires_auth(client: TestClient):

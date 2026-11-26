@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.clock import utc_now
 from app.config import settings
+from app.identity.models import UserRole
 from app.master_data.models import Member, Practice
 from app.outbox.mailer import send_smtp
 from app.outbox.models import OutboxEvent, OutboxKind, OutboxStatus
@@ -27,21 +28,26 @@ def _member_ref(request: PriorAuthRequest, member: Member | None) -> str:
 
 
 def render_decision_notice_subject(request: PriorAuthRequest, member: Member | None) -> str:
-    member_ref = _member_ref(request, member)
-    return f"Prior authorization decided for member {member_ref}"
+    # Office-facing email: say "patient", not the API role name "member".
+    patient_ref = _member_ref(request, member)
+    patient = UserRole.member.people_name
+    return f"Prior authorization decided for {patient} {patient_ref}"
 
 
 def render_decision_notice_body(request: PriorAuthRequest, member: Member | None) -> str:
-    member_ref = _member_ref(request, member)
+    patient_ref = _member_ref(request, member)
+    patient = UserRole.member.people_name
+    reviewer = UserRole.reviewer.people_name
+    office = UserRole.provider_office.people_name
     dos = request.date_of_service.isoformat()
     lines = [
         "Hello,",
         "",
-        "A reviewer has decided a prior authorization for your practice.",
+        f"A {reviewer} has decided a prior authorization for your {office}.",
         "",
-        f"Member: {member_ref}",
+        f"{patient.capitalize()}: {patient_ref}",
         f"Date of service: {dos}",
-        f"Request ID: {request.id}",
+        f"Request ID: {request.uuid}",
         "",
         "Outcomes:",
     ]
@@ -69,7 +75,7 @@ def enqueue_decision_notice(db: Session, request: PriorAuthRequest) -> OutboxEve
     body = render_decision_notice_body(request, member)
     event = OutboxEvent(
         kind=OutboxKind.decision_notice,
-        request_id=request.id,
+        request_id=request.uuid,
         practice_id=request.practice_id,
         payload={"to": to_addr, "subject": subject, "body": body},
         status=OutboxStatus.pending,

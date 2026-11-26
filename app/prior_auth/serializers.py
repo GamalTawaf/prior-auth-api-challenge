@@ -12,7 +12,7 @@ from app.prior_auth.schemas import (
 
 def to_prior_auth_out(request: PriorAuthRequest) -> PriorAuthOut:
     return PriorAuthOut(
-        id=request.id,
+        uuid=request.uuid,
         member_id=request.member_id,
         practice_id=request.practice_id,
         submitted_by_user_id=request.submitted_by_user_id,
@@ -27,7 +27,7 @@ def to_prior_auth_out(request: PriorAuthRequest) -> PriorAuthOut:
         created_at=request.created_at,
         procedures=[
             ProcedureOut(
-                id=p.id,
+                uuid=p.uuid,
                 code=p.code,
                 units=p.units,
                 sequence=p.sequence,
@@ -50,7 +50,7 @@ def to_member_out(request: PriorAuthRequest) -> MemberPriorAuthOut:
             status = MemberProcedureStatus.pending
         procedures.append(
             MemberProcedureOut(
-                id=p.id,
+                uuid=p.uuid,
                 code=p.code,
                 units=p.units,
                 sequence=p.sequence,
@@ -58,7 +58,7 @@ def to_member_out(request: PriorAuthRequest) -> MemberPriorAuthOut:
             )
         )
     return MemberPriorAuthOut(
-        id=request.id,
+        uuid=request.uuid,
         member_id=request.member_id,
         practice_id=request.practice_id,
         diagnosis_icd10=request.diagnosis_icd10,

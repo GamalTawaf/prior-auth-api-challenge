@@ -40,7 +40,7 @@ def persist_intake_rejection(
             "fields": [e.field for e in errors],
             "practice_id": practice_id_str,
         },
-        intake_rejection_id=rejection.id,
+        intake_rejection_id=rejection.uuid,
     )
     db.commit()
     record_intake_rejection()

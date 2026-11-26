@@ -14,8 +14,8 @@ def test_decide_missing_procedure_422(client: TestClient):
     only_one = data["procedures"][0]
     response = decide_as(
         client,
-        data["id"],
-        [{"procedure_id": only_one["id"], "decision": "approved"}],
+        data["uuid"],
+        [{"procedure_id": only_one["uuid"], "decision": "approved"}],
     )
     assert_has_error_code(
         response,
@@ -28,10 +28,10 @@ def test_decide_missing_procedure_422(client: TestClient):
 def test_deny_without_reason_422(client: TestClient):
     data = submit_and_claim(client, procedures=TWO_PROCEDURES)
     outcomes = [
-        {"procedure_id": p["id"], "decision": "denied", "denial_reason": None}
+        {"procedure_id": p["uuid"], "decision": "denied", "denial_reason": None}
         for p in data["procedures"]
     ]
-    response = decide_as(client, data["id"], outcomes)
+    response = decide_as(client, data["uuid"], outcomes)
     assert_has_error_code(
         response,
         "denial_reason_required",
@@ -42,28 +42,28 @@ def test_deny_without_reason_422(client: TestClient):
 def test_decide_happy_and_terminal(client: TestClient):
     data = submit_and_claim(client, procedures=TWO_PROCEDURES)
     outcomes = [
-        {"procedure_id": data["procedures"][0]["id"], "decision": "approved"},
+        {"procedure_id": data["procedures"][0]["uuid"], "decision": "approved"},
         {
-            "procedure_id": data["procedures"][1]["id"],
+            "procedure_id": data["procedures"][1]["uuid"],
             "decision": "denied",
             "denial_reason": "Not medically necessary",
         },
     ]
-    decided = decide_as(client, data["id"], outcomes)
+    decided = decide_as(client, data["uuid"], outcomes)
     assert decided.status_code == 200, decided.text
     body = decided.json()
     assert body["status"] == "decided"
-    assert body["decided_by_user_id"] == str(client.seed["reviewer"].id)
+    assert body["decided_by_user_id"] == str(client.seed["reviewer"].uuid)
 
-    again = decide_as(client, data["id"], outcomes)
+    again = decide_as(client, data["uuid"], outcomes)
     assert again.status_code == 409
 
-    reassign = reassign_as(client, data["id"], client.seed["reviewer2"].id)
+    reassign = reassign_as(client, data["uuid"], client.seed["reviewer2"].uuid)
     assert reassign.status_code == 409
 
 
 def test_admin_reassign_while_in_review(client: TestClient):
     data = submit_and_claim(client, procedures=TWO_PROCEDURES)
-    response = reassign_as(client, data["id"], client.seed["reviewer2"].id)
+    response = reassign_as(client, data["uuid"], client.seed["reviewer2"].uuid)
     assert response.status_code == 200
-    assert response.json()["claimed_by_user_id"] == str(client.seed["reviewer2"].id)
+    assert response.json()["claimed_by_user_id"] == str(client.seed["reviewer2"].uuid)

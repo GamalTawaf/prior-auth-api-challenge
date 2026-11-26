@@ -1,5 +1,5 @@
 import enum
-import uuid
+import uuid as uuid_lib
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, func
@@ -20,15 +20,19 @@ class OutboxStatus(enum.StrEnum):
 
 
 class OutboxEvent(Base):
+    """Transactional outbox row — e.g. email the provider office after a decision."""
+
     __tablename__ = "outbox_events"
     __table_args__ = (Index("ix_outbox_events_status_created", "status", "created_at"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    uuid: Mapped[uuid_lib.UUID] = mapped_column(
+        "id", UUID(as_uuid=True), primary_key=True, default=uuid_lib.uuid4
+    )
     kind: Mapped[str] = mapped_column(String(64), nullable=False)
-    request_id: Mapped[uuid.UUID | None] = mapped_column(
+    request_id: Mapped[uuid_lib.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("prior_auth_requests.id"), nullable=True
     )
-    practice_id: Mapped[uuid.UUID] = mapped_column(
+    practice_id: Mapped[uuid_lib.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("practices.id"), nullable=False
     )
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)

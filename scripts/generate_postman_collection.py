@@ -87,10 +87,10 @@ function setEnv(key, value) {
 }
 function capturePriorAuth(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return;
-  if (body.id) setEnv("request_id", body.id);
+  if (body.uuid) setEnv("request_id", body.uuid);
   const procs = body.procedures;
-  if (Array.isArray(procs) && procs.length && procs[0] && procs[0].id) {
-    setEnv("procedure_id", procs[0].id);
+  if (Array.isArray(procs) && procs.length && procs[0] && procs[0].uuid) {
+    setEnv("procedure_id", procs[0].uuid);
   }
 }
 function captureCorrelation(body) {
@@ -368,32 +368,32 @@ def main() -> None:
 
     users = {
         "office_token": User(
-            id=OFFICE_ID,
+            uuid=OFFICE_ID,
             email="office@example.com",
             role=UserRole.provider_office,
             practice_id=PRACTICE_ID,
             display_name="o",
         ),
         "reviewer_token": User(
-            id=REVIEWER_ID, email="reviewer@example.com", role=UserRole.reviewer, display_name="r"
+            uuid=REVIEWER_ID, email="reviewer@example.com", role=UserRole.reviewer, display_name="r"
         ),
         "reviewer_coi_token": User(
-            id=REVIEWER_COI_ID,
+            uuid=REVIEWER_COI_ID,
             email="reviewer.coi@example.com",
             role=UserRole.reviewer,
             display_name="c",
         ),
         "admin_token": User(
-            id=ADMIN_ID, email="admin@example.com", role=UserRole.ops_admin, display_name="a"
+            uuid=ADMIN_ID, email="admin@example.com", role=UserRole.ops_admin, display_name="a"
         ),
         "auditor_token": User(
-            id=AUDITOR_ID,
+            uuid=AUDITOR_ID,
             email="auditor@example.com",
             role=UserRole.auditor,
             display_name="au",
         ),
         "member_token": User(
-            id=MEMBER_USER_ID,
+            uuid=MEMBER_USER_ID,
             email="member@example.com",
             role=UserRole.member,
             member_id=MEMBER_ID,
@@ -417,7 +417,7 @@ def main() -> None:
             "key": "procedure_id",
             "value": "00000000-0000-4000-8000-000000000002",
             "enabled": True,
-            "description": "Auto-set to procedures[0].id by Tests scripts",
+            "description": "Auto-set to procedures[0].uuid by Tests scripts",
         },
         {
             "key": "idempotency_key",

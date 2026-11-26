@@ -33,7 +33,7 @@ AUDITOR_ID = uuid.UUID("77777777-7777-7777-7777-777777777777")
 
 def seed() -> dict[str, str]:
     with SessionLocal() as db:
-        if db.scalar(select(User).where(User.id == OFFICE_ID)):
+        if db.scalar(select(User).where(User.uuid == OFFICE_ID)):
             users = {
                 "office": db.get(User, OFFICE_ID),
                 "reviewer": db.get(User, REVIEWER_ID),
@@ -44,13 +44,13 @@ def seed() -> dict[str, str]:
             }
         else:
             practice = Practice(
-                id=PRACTICE_ID,
+                uuid=PRACTICE_ID,
                 name="Riverside Clinic",
                 notification_email="office@riverside.example.com",
             )
-            member = Member(id=MEMBER_ID, external_id="M-1001", full_name="Alex Member")
+            member = Member(uuid=MEMBER_ID, external_id="M-1001", full_name="Alex Member")
             unlinked = Member(
-                id=MEMBER_UNLINKED_ID, external_id="M-1099", full_name="Unlinked Patient"
+                uuid=MEMBER_UNLINKED_ID, external_id="M-1099", full_name="Unlinked Patient"
             )
             db.add_all([practice, member, unlinked])
             db.flush()
@@ -65,39 +65,39 @@ def seed() -> dict[str, str]:
                 )
             )
             office = User(
-                id=OFFICE_ID,
+                uuid=OFFICE_ID,
                 email="office@example.com",
                 role=UserRole.provider_office,
                 practice_id=PRACTICE_ID,
                 display_name="Office User",
             )
             reviewer = User(
-                id=REVIEWER_ID,
+                uuid=REVIEWER_ID,
                 email="reviewer@example.com",
                 role=UserRole.reviewer,
                 display_name="Reviewer One",
             )
             reviewer_coi = User(
-                id=REVIEWER_COI_ID,
+                uuid=REVIEWER_COI_ID,
                 email="reviewer.coi@example.com",
                 role=UserRole.reviewer,
                 display_name="Reviewer COI",
             )
             admin = User(
-                id=ADMIN_ID,
+                uuid=ADMIN_ID,
                 email="admin@example.com",
                 role=UserRole.ops_admin,
                 display_name="Ops Admin",
             )
             member_user = User(
-                id=MEMBER_USER_ID,
+                uuid=MEMBER_USER_ID,
                 email="member@example.com",
                 role=UserRole.member,
                 member_id=MEMBER_ID,
                 display_name="Alex Member",
             )
             auditor = User(
-                id=AUDITOR_ID,
+                uuid=AUDITOR_ID,
                 email="auditor@example.com",
                 role=UserRole.auditor,
                 display_name="Auditor",
@@ -117,7 +117,7 @@ def seed() -> dict[str, str]:
 
         if users.get("auditor") is None:
             auditor = User(
-                id=AUDITOR_ID,
+                uuid=AUDITOR_ID,
                 email="auditor@example.com",
                 role=UserRole.auditor,
                 display_name="Auditor",

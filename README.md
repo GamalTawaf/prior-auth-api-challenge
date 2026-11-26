@@ -6,13 +6,15 @@ Durable Python + PostgreSQL prior-auth backend (Oxbridge Health take-home). Doma
 
 API roles are named for how people talk about the work:
 
-| In the API | In plain language |
-|------------|-------------------|
+| In the API / models | In plain language |
+|---------------------|-------------------|
 | **Members** | Our patients |
 | **Provider offices** | Doctors' offices submitting requests for their patients |
 | **Reviewers** | Our nurses and physicians who decide requests |
 | **Operations admins** | The people who keep the work moving (reassign, workload) |
 | **Auditors** | Read-only compliance viewers (audit trail; no mutations) |
+
+Primary keys on models and in JSON are named **`uuid`** (not `id`) so the name matches the type. DB columns remain `id` for Postgres FKs.
 
 ## How to run
 

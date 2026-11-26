@@ -137,7 +137,7 @@ def _office_context_from_request(request: Request, db):
     if user is None or user.role != UserRole.provider_office or user.practice_id is None:
         return None
     return UserContext(
-        user_id=user.id,
+        user_id=user.uuid,
         role=user.role,
         practice_id=user.practice_id,
         member_id=user.member_id,
