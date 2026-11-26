@@ -128,6 +128,15 @@ Failed submits return `correlation_id` on the 422. Support looks up
 No free-text search by member / DOS / submitter — YAGNI for this take-home; the id is
 the handoff from office → desk.
 
+### Log PII / PHI masking
+
+Root logger gets `PiiRedactingFilter` (`app/log_pii.py`) during telemetry setup (API +
+worker). Redacts emails, JWTs / `Bearer` tokens, and values for `clinical_note`,
+`denial_reason`, `member_id`, `authorization`, `password`, `ssn`, `dob` /
+`date_of_birth`, `jwt_secret` in message text and log args. Does **not** scrub OTel
+span attributes or the audit table — those stay for ops/compliance. Member API
+redaction remains a separate contract.
+
 ### JWT secret — accepted risk, not production-ready
 
 `settings.jwt_secret` keeps a committed default (`dev-only-change-me-32bytes-min!!`) so the
