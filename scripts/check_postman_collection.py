@@ -1,5 +1,8 @@
 #!/usr/bin/env -S uv run python
-"""Fail if committed Postman JSON differs from a fresh generate (byte compare).
+"""Fail if committed Postman JSON differs from a fresh generate.
+
+ISO dates in the env (date_of_service) are normalized so daily regenerate
+does not false-fail; everything else is a byte compare.
 
 Fix: ./scripts/generate_postman_collection.py && git add postman/Prior_Auth_API*.json
 """
@@ -7,6 +10,7 @@ Fix: ./scripts/generate_postman_collection.py && git add postman/Prior_Auth_API*
 from __future__ import annotations
 
 import difflib
+import re
 import shutil
 import sys
 import tempfile
@@ -18,6 +22,12 @@ FILES = (
     "Prior_Auth_API.postman_collection.json",
     "Prior_Auth_API.postman_environment.json",
 )
+
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _normalize(text: str) -> str:
+    return _ISO_DATE.sub("<date>", text)
 
 
 def main() -> int:
@@ -42,7 +52,7 @@ def main() -> int:
         for name in FILES:
             committed = (POSTMAN / name).read_text()
             generated = (tmp / name).read_text()
-            if committed == generated:
+            if _normalize(committed) == _normalize(generated):
                 continue
             drifted = True
             print(f"diff: postman/{name}")
