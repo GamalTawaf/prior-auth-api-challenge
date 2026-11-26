@@ -1,32 +1,51 @@
 # Session handoff
 
-## Active
+## Status
 
-**Wishlist stretch complete** (feat-008…012). Stacked PRs opened against `main` / previous feature branch.
+**System complete.** Core challenge (feat-001…007) + wishlist stretch (feat-008…012) are shipped. No active feature. Do not invent further scope unless the user asks.
 
-| Feature | Lane | Branch |
-|---------|------|--------|
-| feat-008 workload | medium | `feat/wishlist-008-workload` |
-| feat-009 outbox→MailDev | medium | `feat/wishlist-009-outbox` |
-| feat-010 auditor | high | `feat/wishlist-010-auditor` |
-| feat-011 Idempotency-Key | high | `feat/wishlist-011-idempotency` |
-| feat-012 docs + demo | low | `feat/wishlist-012-docs` |
+## What is running
 
-Plan: `docs/plans/2026-11-25-wishlist-outbox-maildev.md`. Grit: `~/.local/bin/grit` + `./scripts/grit_reindex.sh`.
+| Area | Behavior |
+|------|----------|
+| Submit | Office POST `/v1/prior-auths`; multi-field errors; optional `Idempotency-Key` |
+| Support | `IntakeRejection` by `correlation_id` |
+| Queue / claim | Atomic claim; COI 403; admin reassign |
+| Decide | Whole-request; per-procedure outcomes; terminal + DB CHECK |
+| Notify | Decide → outbox same txn → `outbox-worker` → MailDev |
+| Workload | `GET /v1/reviewers/workload` (ops_admin) |
+| Auditor | Read-only audit + list/get; mutations 403 |
+| Member | `/me` strips clinical_note / denial_reason |
+| Audit | Same DB transaction as every state change |
+
+Plans (historical): `docs/plans/2026-11-24-prior-auth-api.md`, `docs/plans/2026-11-25-wishlist-outbox-maildev.md` (**shipped**).
+
+## Agent ops (keep short)
+
+- Prefer README Decisions + this handoff over re-reading full plans unless changing design.
+- **Parallel work:** use grit (`grit claim` → `.grit/worktrees/<agent>/` → `grit done`); `./scripts/grit_reindex.sh` after big tree changes. Serialize Alembic heads. See `AGENTS.md` § Working rules.
+- Still never commit to `main` — branch + PR only.
 
 ## Walkthrough
 
-1. State machine from README Decisions
+1. State machine + matrices in README Decisions
 2. `docker compose up -d && uv run alembic upgrade head && uv run python scripts/seed.py`
 3. `./scripts/demo.sh` — fail→support→submit→idempotency replay→claim 409→workload→COI→decide→MailDev→auditor→member redaction
-4. Claim race + redaction tests as needed
+4. OpenAPI: http://localhost:8000/docs
+
+## Verify
+
+```bash
+./init.sh
+./scripts/gates.sh
+./scripts/demo.sh
+```
 
 ## Blockers
 
 None.
 
-## Next
+## Next (submission only)
 
-- Merge stacked PRs in order 008→012
 - Add collaborator `rgavrilov5` when submitting the challenge
-- Optional: remove stale `.worktrees/feat-008-workload`
+- Prefer defending product code (claim race, redaction, audit, outbox) over harness/tooling in the live session

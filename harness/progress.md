@@ -1,86 +1,20 @@
 # Progress
 
-## 2026-11-24 — full plan implementation
+## Shipped (2026-11-26)
 
-- feat-001…007 marked done
-- System verified: compose up, migrate, seed, demo.sh, pytest 40 passed @ 100% coverage, mutmut 535/535 killed
-- Branch: `feat/prior-auth-api`
+All `harness/feature_list.json` items **done** (feat-001…012).
 
-## 2026-11-24 — coding gates into AI harness
+| Slice | What’s in the tree |
+|-------|--------------------|
+| Core | Submit / intake support / claim race / COI / decide / reassign / member redaction / audit API |
+| Tooling | Alembic, seed JWTs, Compose, multi-stage Docker, CI (lint/test/mutate/image), mutmut, `demo.sh`, Postman generator |
+| Wishlist | Workload API, outbox→MailDev, auditor role, `Idempotency-Key` on submit, README/demo walkthrough |
 
-- Added durable rules: no test/app duplication (conftest helpers + parametrize / shared utils), call-style, ruff, FastAPI compile in gates/CI, visible step summaries, 100% coverage
-- Written to `AGENTS.md` § Coding & quality gates, `.cursor/rules/coding-gates.mdc`, plan Testing strategy + Commit/CI gates
+**Verify:** `./init.sh` · `./scripts/gates.sh` · `./scripts/demo.sh`
 
-## 2026-11-25 — PR risk lanes in AI harness
+**Handoff:** `harness/session-handoff.md` (system complete — no next feature).
 
-- Every PR must be labeled `low` | `medium` | `high` (behavior impact)
-- `AGENTS.md`, `.cursor/rules/pr-lanes.mdc`, `.github/PULL_REQUEST_TEMPLATE.md`, `scripts/ensure_pr_labels.sh`
+## Earlier session log (condensed)
 
-## 2026-11-25 — wishlist stretch planned (D + MailDev)
-
-- Scope: workload, outbox→MailDev, auditor role, Idempotency-Key on submit, docs/demo
-- Plan: `docs/plans/2026-11-25-wishlist-outbox-maildev.md`
-- Harness: feat-008…012; next after 008 = feat-009
-- Docs updated: `AGENTS.md`, `README.md` Decisions, MVP plan cross-links, session-handoff
-- Execution: one Task agent per feature; **grit** for parallel claim/merge (`https://github.com/rtk-ai/grit`); `scripts/grit_reindex.sh`; feat-008 used plain `.worktrees/` — 009+ use grit
-- grit 0.4.0 at `~/.local/bin`; `./scripts/grit_reindex.sh` parks `.worktrees`/`.venv`
-
-## 2026-11-25 — feat-008 Reviewer workload API
-
-- `GET /v1/reviewers/workload` (ops_admin): LEFT JOIN all `role=reviewer` with `open_count` of `in_review` claims
-- Route on `app/prior_auth/router.py` + `ReviewerWorkloadOut`; tests in `tests/test_workload.py`
-- Verify: `uv run pytest tests/test_workload.py -v`; `./scripts/gates.sh`
-- Merged to local `main` (`9e20abe`); next: feat-009 via grit `wishlist-009`
-
-## 2026-11-25 — feat-009 Outbox + MailDev decision notify
-
-- Migration `20261125_outbox`: `practices.notification_email` NOT NULL + `outbox_events`
-- `app/outbox/`: models, mailer (stdlib smtplib), services enqueue/claim/process, worker module
-- `decide_request` enqueues in same txn as audit; email body omits clinical_note / denial_reason
-- Compose: `maildev` (1025/1080) + `outbox-worker` (`python -m app.outbox.worker`)
-- Verify: `uv run pytest tests/test_outbox.py -v` → 12 passed; `./scripts/gates.sh`
-- `grit done -a wishlist-009` → merge commit `b46534a` on local `main`
-- Next: feat-010 auditor (alembic head = `20261125_outbox`)
-
-## 2026-11-25 — feat-010 Auditor role
-
-- `UserRole.auditor`; migration `20261125_auditor` (`down_revision = 20261125_outbox`) ADD VALUE via autocommit
-- Seed `auditor@example.com` + Postman `auditor_token`; `AdminOrAuditor` on audit GET
-- Read-all list/get via `OfficeAdminOrAuditor` / get_prior_auth auditor branch; mutations + workload + /me → 403
-- Verify: `uv run pytest tests/test_auditor.py -v`; `./scripts/gates.sh`
-- Next: feat-011 Idempotency-Key (alembic head = `20261125_auditor`)
-
-
-## 2026-11-25 — feat-010 grit done + feat-011 started
-
-- `grit done -a wishlist-010` → merge `f675d4f` on local `main`
-- Alembic head for 011: `20261125_auditor`
-
-## 2026-11-25 — feat-011 Idempotency-Key on submit
-
-- Migration `20261125_idempotency` (`down_revision = 20261125_auditor`); table `prior_auth_idempotency_keys`
-- `app/prior_auth/idempotency.py` + wire in `create_prior_auth` / `submit_prior_auth`
-- Missing header = create; empty/oversized → 400 `idempotency_key_invalid`; same key+body → replay 201; reuse → 409
-- README Decisions TTL (~24h, prune YAGNI); wishlist row marked implemented; Postman `{{idempotency_key}}`
-- Verify: `uv run pytest tests/test_idempotency.py -v`; `./scripts/gates.sh`
-- Next: feat-012 docs/demo (alembic head = `20261125_idempotency`)
-
-## 2026-11-25 — feat-011 grit done + feat-012 started
-
-- `grit done -a wishlist-011` → merge `bcbced7` on local `main`
-- Alembic head: `20261125_idempotency`
-- Next: feat-012 docs + demo.sh
-
-## 2026-11-25 — feat-012 Wishlist docs + demo
-
-- README: cut list excludes wishlist; Decisions for Idempotency-Key (~24h), workload, outbox→MailDev, auditor; visibility matrix + auditor column; Live walkthrough updated
-- `scripts/demo.sh`: fail→support→submit+Idempotency-Key replay→claim/409→workload→COI→decide→MailDev poll/note→auditor audit→member redaction
-- `harness/session-handoff.md` full wishlist walkthrough; feat-012 marked done
-- Lane: **low** (docs/demo only)
-- Verify: `./scripts/demo.sh` (Compose when available); `./scripts/gates.sh`
-
-## 2026-11-25 — wishlist stretch complete on local main
-
-- `grit done -a wishlist-012` → merge `003ad4a`
-- Local `main` ahead of `origin/main` by 9 commits (008–012 + grit merges)
-- All feat-008…012 `done`; no active grit locks
+- 2026-11-24 — MVP plan + feat-001…007; coding gates + PR lanes into AGENTS / Cursor rules
+- 2026-11-25 — Wishlist plan + feat-008…012 implemented (workload → outbox → auditor → idempotency → docs)

@@ -15,7 +15,7 @@
       "description": "SQLAlchemy models (including IntakeRejection, AuditEvent, COI), Alembic with decided⇒decided_by CHECK, seed script with COI pair, PyJWT auth + RBAC deps, seed tokens documented in README.",
       "dependencies": ["feat-001"],
       "status": "done",
-      "evidence": "alembic upgrade head; ck_decided_requires_actor present; scripts/seed.py prints 5 tokens; tests/test_auth.py pass",
+      "evidence": "alembic upgrade head; ck_decided_requires_actor present; scripts/seed.py prints role JWTs (office/reviewer/reviewer_coi/admin/auditor/member); tests/test_auth.py pass",
       "verify": "uv run alembic upgrade head && uv run python scripts/seed.py"
     },
     {

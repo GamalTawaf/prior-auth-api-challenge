@@ -162,24 +162,20 @@ reassign / read audit).
 GraphQL, event bus, microservices, real IdP, appeals, retro review, CRUD UIs, AWS deploy,
 real SES/SendGrid (MailDev only).
 
-### Wishlist stretch (feat-008…012) — shipped
+### Beyond the MVP cut list — shipped
 
-Plan: [`docs/plans/2026-11-25-wishlist-outbox-maildev.md`](docs/plans/2026-11-25-wishlist-outbox-maildev.md).
-All items above are implemented; cut list no longer includes them.
+Historical plan: [`docs/plans/2026-11-25-wishlist-outbox-maildev.md`](docs/plans/2026-11-25-wishlist-outbox-maildev.md).
 
-| Feature | Behavior | Lane |
-|---------|----------|------|
-| feat-008 | `GET /v1/reviewers/workload` (ops_admin; all reviewers + `open_count`) | medium |
-| feat-009 | decide → transactional outbox → MailDev via `outbox-worker` | medium |
-| feat-010 | `auditor` role; audit + list/get read; mutations 403 | high |
-| feat-011 | `Idempotency-Key` on `POST /v1/prior-auths` (~24h TTL story) | high |
-| feat-012 | README + `demo.sh` walkthrough for the above | low |
-
-Prefer **[grit](https://github.com/rtk-ai/grit)** (`grit claim` → `.grit/worktrees/<agent>/` → `grit done`) when agents run in parallel; reindex with `./scripts/grit_reindex.sh`. Stack or serialize **Alembic** heads even under grit (AST locks do not merge migration graphs).
+| Capability | Behavior |
+|------------|----------|
+| Workload | `GET /v1/reviewers/workload` (ops_admin; all reviewers + `open_count`) |
+| Decision notify | decide → transactional outbox → MailDev via `outbox-worker` |
+| Auditor | read-only audit + list/get; mutations 403 |
+| Idempotency | `Idempotency-Key` on `POST /v1/prior-auths` (~24h TTL story) |
 
 ### Coding standards
 
-Ponytail full + Karpathy guidelines + no restating comments. Domain packages win over “fewest files.” Plan-required tooling is never cut.
+Domain packages, thin services, no restating comments. Audit/RBAC/validation and plan-required tooling (uv, OTel, multi-stage Docker, mutmut, CI) stay.
 
 ### Runtime versions
 
@@ -254,15 +250,14 @@ Covers: failed submit → support → happy submit → **Idempotency-Key replay*
 
 ## How AI was used
 
-- Plan: LLM council + `docs/plans/2026-11-24-prior-auth-api.md` (domain packages, cut wishlist, IntakeRejection, OTel, mutmut, CI).
-- Wishlist stretch plan: `docs/plans/2026-11-25-wishlist-outbox-maildev.md` (workload, outbox→MailDev, auditor, Idempotency-Key).
-- Implementation: Cursor agent following the plan with executing-plans / TDD, ponytail full, Karpathy surgical diffs; wishlist via one agent + worktree per feature.
-- Wrong turns fixed: uv had only Python 3.15 beta → Homebrew/Docker **3.15.2**; no `uv:python3.15` image → install uv binary onto `python:3.15.2-slim`; mutmut 3 needs full `app/` in `source_paths` with `only_mutate` on services.
+- Planning: LLM council notes in `docs/council/` + written plans under `docs/plans/` (MVP then wishlist).
+- Implementation: Cursor agents against those plans (TDD, surgical diffs). Humans kept Decisions, cut list, and race/audit/redaction invariants.
+- Wrong turns fixed: uv only offered Python 3.15 beta → pin Homebrew/Docker **3.15.2**; install uv onto `python:3.15.2-slim` (no official uv image); mutmut 3 needs `source_paths=app/` with `only_mutate` on services.
 - Tests are outside-in HTTP (except persistence-truth claim race + DB CHECK).
 
 ## Design notes
 
-- Flat domain packages under `app/` (identity, master_data, prior_auth, intake, audit, shared)
+- Flat domain packages under `app/` (identity, master_data, prior_auth, intake, audit, outbox, shared)
 - Thin routers; rules in `prior_auth/services/*`
 - Role-specific response schemas (member strips note + denial reason)
 - OpenTelemetry in `telemetry.py` (console default; OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` set)

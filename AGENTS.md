@@ -2,145 +2,113 @@
 
 Prior Authorization API take-home (Oxbridge Health). Durable Python + PostgreSQL backend a teammate inherits; defendable in a 45-minute walkthrough.
 
-## Startup Workflow
+## Status
 
-Before writing code:
+**Complete.** Features feat-001…012 in `harness/feature_list.json` are `done` (core + wishlist). Do not invent new product scope unless the user asks. Prefer surgical fixes and walkthrough readiness over new features.
 
-1. Confirm working directory with `pwd` (repo root)
-2. Read this file completely
-3. Read `docs/plans/2026-11-24-prior-auth-api.md` (source of truth for scope)
-4. Read `CLAUDE.md` (Karpathy behavioral rules)
-5. Run `./init.sh` to verify environment health
-6. Read `harness/feature_list.json` for current feature state
-7. Review `harness/progress.md` and `harness/session-handoff.md` if resuming
-8. Review recent commits with `git log --oneline -5` (after git init)
+## Startup
 
-If baseline verification is failing, repair that first before adding new scope.
+1. `pwd` → repo root
+2. Read this file, `CLAUDE.md`, and README Decisions
+3. `./init.sh` (repair baseline before any new work)
+4. `harness/session-handoff.md` for current system snapshot
+5. Plans are historical: `docs/plans/2026-11-24-prior-auth-api.md`, `docs/plans/2026-11-25-wishlist-outbox-maildev.md` (**shipped**)
 
-## Working Rules
+## Working rules
 
-- **One feature at a time**: Pick exactly one unfinished feature from `harness/feature_list.json` whose dependencies are `done`
-- **Ponytail full**: YAGNI, fewest files, no speculative abstractions; never cut audit/RBAC/validation or plan-required tooling (uv, OTel, multi-stage Docker, mutmut, CI)
-- **Versions**: Python 3.15 + Postgres 19 + latest stable PyPI deps (no alphas/RCs; OTel instrumentations may be upstream `0.xbY`); see plan Version policy
-- **uv prod vs dev**: `[project].dependencies` = runtime; `[dependency-groups] dev` = pytest/httpx2/mutmut/ruff. `uv add` vs `uv add --dev`. Local/CI `uv sync`; Docker `uv sync --frozen --no-dev`
-- **Karpathy**: think before coding; simplicity first; surgical diffs; every step has a verify check
-- **No noise comments**: code must be clear from names/types; comment only when *why* is invisible
-- **Verification required**: do not claim done without running the feature's verification (and `./init.sh` when the project has `pyproject.toml`)
-- **Evidence required**: record commands + outcome in `harness/feature_list.json` `evidence` and append `harness/progress.md`
-- **Tests = user flow**: send real HTTP API calls; mock **only** DB responses and/or external calls; never mock routers/services/schemas/RBAC. Claim race + DB CHECKs use real Postgres (persistence is under test).
-- **Stay in scope**: implement only the active `harness/feature_list.json` item. Wishlist stretch is **feat-008…012** (plan `docs/plans/2026-11-25-wishlist-outbox-maildev.md`: workload, outbox→MailDev, auditor, Idempotency-Key). Do not invent further wishlist beyond that plan.
-- **Parallel agents:** use **[grit](https://github.com/rtk-ai/grit)** (`grit claim` → work in `.grit/worktrees/<agent>/` → `grit done`) when 2+ agents touch the same codebase. AST-level locks beat raw git worktree merges. Install: `cargo install --git https://github.com/rtk-ai/grit` or release binary to `~/.local/bin`. After big tree changes: `./scripts/grit_reindex.sh` (parks `.worktrees`/`.venv` — grit does not skip those top-level dirs). See wishlist plan § Grit.
-- **Leave clean state**: next session must be able to run `./init.sh` immediately
+- **Ponytail full + Karpathy** — YAGNI, surgical diffs, every step has a verify check
+- **No noise comments** — comment only when *why* is invisible
+- **Tests = user flow** — real HTTP; mock only DB/external boundaries; never mock routers/services/schemas/RBAC. Claim race + DB CHECKs use real Postgres
+- **Verification** — `./scripts/gates.sh` (and feature verify) before claiming done; update `harness/progress.md` / handoff if state changes
+- **Versions** — Python 3.15 + Postgres 19; latest stable PyPI (no alphas/RCs; OTel instrumentations may be `0.xbY`). `uv` only: prod in `[project].dependencies`, test/lint in `[dependency-groups] dev`
+- **Never cut** — audit, RBAC, validation, plan-required tooling (uv, OTel, multi-stage Docker, mutmut, CI)
+- **Parallel agents → grit** — if 2+ agents may edit overlapping code, use [grit](https://github.com/rtk-ai/grit): `grit claim` → work only in `.grit/worktrees/<agent>/` → `grit done`. Reindex with `./scripts/grit_reindex.sh` after big tree changes (parks `.worktrees` / `.venv` / `mutants` — grit does not skip those top-level dirs). Single-agent / non-overlapping work: plain branch + PR is enough. **Alembic:** serialize migration heads even under grit (AST locks do not merge graphs). Main checkout must be clean before `grit done`.
 
-## Coding & quality gates (always)
+## Coding & quality gates
 
-Also mirrored in `.cursor/rules/coding-gates.mdc`.
+Mirrored in `.cursor/rules/coding-gates.mdc`.
 
 ### No duplication
 
-- **Tests:** do not copy-paste HTTP/setup. Reuse or extend `tests/conftest.py` helpers (`submit_ok`, `submit_and_claim`, `claim_as`, `decide_as`, `reassign_as`, `assert_has_error_code`, `role_headers`, race helpers, …). Prefer `@pytest.mark.parametrize` for same shape / different inputs. **Add a helper when a sequence appears twice.**
-- **App:** when the same logic appears in 2+ places, extract a util (e.g. `app/prior_auth/services/common.py`: `has_coi`, `get_request`, `audit_commit_refresh`; `raise_validation` / `raise_field` in `app/shared/errors.py`). No speculative layers for one call site.
+- **Tests:** reuse `tests/conftest.py` helpers (`submit_ok`, `submit_and_claim`, `claim_as`, `decide_as`, `reassign_as`, `assert_has_error_code`, `role_headers`, race helpers, …). Parametrize same shapes. Add a helper when a sequence appears twice.
+- **App:** extract shared utils at 2+ call sites (`has_coi`, `get_request`, `audit_commit_refresh`; `raise_validation` / `raise_field`). No speculative layers for one site.
 
 ### Call style (`scripts/check_call_style.py`)
 
-- No `IfExp` / `and`/`or` BoolOp / `Lambda` inside function-call **arguments** (`app/` + `tests/`).
-- No nested non-constructor Calls inside call arguments (`app/` only; `**/models.py` and `**/schemas.py` exempt). CapWords constructors OK.
-- Extract locals before the call; do not “fix” by nesting.
+- No `IfExp` / `and`/`or` BoolOp / `Lambda` inside call **arguments** (`app/` + `tests/`).
+- No nested non-constructor Calls inside call arguments (`app/` only; models/schemas exempt). CapWords constructors OK.
+- Extract locals before the call.
 
-### Lint, compile, coverage, summaries
+### Lint / gates / CI
 
-- **ruff** `format --check` + `check` on `app` `tests` `scripts`.
-- **FastAPI compile** (`scripts/check_fastapi_compile.py`) — import `app.main:app` + OpenAPI sanity — required in commit gates and CI.
-- **pytest** with **100%** line + branch coverage (`fail_under = 100`).
-- Claim done only after `./scripts/gates.sh` (or equivalent) is green.
-- **Every** gates/CI step must print a visible summary (`### title` + body; write to `$GITHUB_STEP_SUMMARY` in Actions). New steps must follow `scripts/gates.sh` `run_step` / CI `| tee` + summary pattern — no silent steps.
+- **ruff** format + check on `app` `tests` `scripts`
+- **FastAPI compile** (`scripts/check_fastapi_compile.py`)
+- **pytest** 100% line + branch (`fail_under = 100`)
+- Claim done only after `./scripts/gates.sh` green
+- Every gates/CI step prints a visible summary (`### …` + `$GITHUB_STEP_SUMMARY` when set)
 
 ## Layout
 
 ```
 .                         # entrypoints + runtime project files only
 ├── AGENTS.md / CLAUDE.md / init.sh
-├── harness/              # agent state
-├── docs/{plans,council,harness}/
-├── app/                  # domain packages (feat-001+)
+├── harness/              # feature_list + progress + session-handoff (complete)
+├── docs/plans/           # historical implementation plans (shipped)
+├── app/
 │   ├── shared/           # errors, deps
 │   ├── identity/         # users, JWT, RBAC
 │   ├── master_data/      # practices, members, coverage, COI
 │   ├── prior_auth/       # submit/claim/decide/reassign + routers
 │   ├── intake/           # IntakeRejection + support lookup
-│   └── audit/            # AuditEvent + writer + audit router
+│   ├── audit/            # AuditEvent + writer + audit router
+│   └── outbox/           # decision notify (worker + MailDev)
 ├── tests/ / scripts/ / postman/
 ```
 
-## Required Artifacts
+## Artifacts
 
-- `harness/feature_list.json` — feature state (source of truth for what to build next)
-- `harness/progress.md` — session continuity log
-- `init.sh` — startup and verification
-- `harness/session-handoff.md` — multi-session handoff
-- `docs/plans/2026-11-24-prior-auth-api.md` — full plan
-- `CLAUDE.md` — Karpathy guidelines
+| Path | Role |
+|------|------|
+| `harness/feature_list.json` | Shipped feature inventory + evidence |
+| `harness/progress.md` | Compact shipped log |
+| `harness/session-handoff.md` | System snapshot + walkthrough |
+| `README.md` | How to run, Decisions, AI usage |
+| `./init.sh` / `./scripts/gates.sh` / `./scripts/demo.sh` | Verify + live demo |
 
-## Definition of Done
-
-A feature is done only when ALL of the following are true:
-
-- [ ] Target behavior is implemented
-- [ ] Required verification actually ran
-- [ ] Evidence recorded in `harness/feature_list.json` and `harness/progress.md`
-- [ ] Repository remains restartable from `./init.sh`
-- [ ] No unrelated files changed
-
-## End of Session
-
-1. Update `harness/progress.md` with current state
-2. Update `harness/feature_list.json` status + evidence
-3. Update `harness/session-handoff.md` (active feature, blockers, next step)
-4. Record unresolved risks
-5. Commit when work is in a safe state (if user asked for commits)
-6. Leave repo clean enough for next session to run `./init.sh`
-
-## Verification Commands
+## Verification
 
 ```bash
 ./init.sh
 ./scripts/gates.sh
+./scripts/demo.sh
 ```
 
-When `pyproject.toml` exists, init installs the git pre-commit hook and runs:
+- Pre-commit: gates with `GATES_SKIP_TESTS=1` (full pytest still in CI / `./init.sh`)
+- Mutmut: `./scripts/run_mutmut.sh` (CI / hot-path gate; not every local init)
+- Postman: `uv run python scripts/generate_postman_collection.py` (gitignored output; do not hand-edit)
 
-- `uv sync` (prod + `dependency-groups.dev`)
-- `./scripts/gates.sh` — ruff format/check, call-style, fastapi OpenAPI compile, pytest+coverage
-- `docker build -t prior-auth-api:local .` (no push)
+## Pull requests — never commit to `main`
 
-Pre-commit (after `./scripts/install_git_hooks.sh`): same gates with `GATES_SKIP_TESTS=1` (pytest still runs in CI/`./init.sh`).
+**No direct commits or pushes to `main`.** Always:
 
-Mutmut is a CI / feat-006 gate, not every local init (too slow). Always `./scripts/run_mutmut.sh` (creates `prior_auth_mutmut_{i}` DBs and runs with `MUTMUT_MAX_CHILDREN`, default 4; each pytest session claims a slot so schema drops do not race).
+1. Branch from latest `main` (`git fetch origin && git checkout -b <branch> origin/main`)
+2. Commit on that branch only
+3. Push the branch and open a PR into `main` (`gh pr create --base main`)
+4. Merge via PR (squash/merge on GitHub) — do not `git push origin main`
 
-CI: thin `ci.yml` calls `changes`/`lint`/`test`/`mutate`/`image` workflows. Meta-only diffs no-op the heavy jobs so required checks still pass; code-path changes run the full suite. Never rely on `[skip ci]`. Protection contexts are `lint / lint` (etc.).
+This applies to docs, harness, and code alike. Hotfixes are not exempt.
 
-Postman (feat-006): `uv run python scripts/generate_postman_collection.py` writes local `postman/*.json` from OpenAPI (gitignored) with seed demo bodies + per-route role tokens — do not hand-edit or commit them.
+### Risk lanes
 
-## Pull requests — risk lanes (required)
+Exactly one label: `low` | `medium` | `high`. See `.cursor/rules/pr-lanes.mdc`.
 
-Every PR must carry **exactly one** GitHub label: `low`, `medium`, or `high`. Mirrored in `.cursor/rules/pr-lanes.mdc` and `.github/PULL_REQUEST_TEMPLATE.md`.
-
-| Lane | Label | Examples |
-|------|-------|----------|
-| **Low** | `low` | Docs/harness/`*.md`, comments, format-only, tooling config with no runtime behavior change |
-| **Medium** | `medium` | Additive, backward-compatible API/schema (new response field, optional request field, new non-breaking route) |
-| **High** | `high` | Logic/behavior of main components: validation, claim/decide/COI/RBAC, auth, semantic migrations, removed/renamed fields, status/`error_code` changes |
-
-**Rules for agents opening a PR:**
-
-1. Classify from the **full** diff; mixed changes → use the **highest** lane.
-2. Run `./scripts/ensure_pr_labels.sh` once if labels may be missing.
-3. Create/update the PR with `--label low|medium|high` and state `Lane: …` in the Summary.
-4. Unsure whether behavior changed → treat as **high**.
+1. Classify from the **full** diff; mixed → highest lane
+2. `./scripts/ensure_pr_labels.sh` if needed
+3. `gh pr create/edit … --label <lane>` and `Lane: …` in Summary
+4. Unsure whether behavior changed → **high**
 
 ## Escalation
 
-- Architecture / compliance ambiguity → ask user (do not invent policy)
-- Unclear requirements → re-read plan Decisions matrices; then ask
+- Architecture / compliance ambiguity → ask user
+- Unclear requirements → README Decisions / plans; then ask
 - Repeated test failures → update progress, stop expanding scope
-- Scope ambiguity → re-read active feature in `harness/feature_list.json`

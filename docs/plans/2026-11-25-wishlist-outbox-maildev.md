@@ -1,10 +1,8 @@
 # Wishlist stretch — workload, outbox→MailDev, auditor, Idempotency-Key
 
-> **For agentic workers:** One `harness/feature_list.json` item at a time. Ponytail full + Karpathy. Tests = real HTTP; mock only SMTP at the boundary (or use MailDev in compose for integration). Lane per PR from full diff; this epic mixes **medium** (additive) and **high** (role enum / submit semantics) — split PRs by lane when possible.
->
-> **Parallelism:** use [grit](https://github.com/rtk-ai/grit) (`claim` → `.grit/worktrees/<agent>/` → `done`) whenever two agents might edit overlapping files. Prefer grit over ad-hoc `.worktrees/` for feat-009+.
+> **Status: SHIPPED** (feat-008…012). Historical plan — do not re-implement. Current system: README Decisions + `harness/session-handoff.md`.
 
-**Goal:** Ship the challenge wishlist plus the deferred partner/compliance seams, with decision notifications delivered through a transactional outbox to **MailDev** (dev SMTP sink).
+**Goal (met):** Challenge wishlist plus deferred partner/compliance seams; decision notifications via transactional outbox → **MailDev**.
 
 **Spec anchors**
 
@@ -157,39 +155,13 @@ Seed user `auditor@example.com` + token in seed output / Postman env.
 
 ---
 
-## Grit (parallel agents)
+## Execution note (historical)
 
-Install once: release binary → `~/.local/bin/grit` (or `cargo install --git https://github.com/rtk-ai/grit`).  
-Index: `./scripts/grit_reindex.sh` (required — plain `grit init` also walks `.worktrees/` and `.venv`).
-
-```bash
-grit status
-grit symbols --file app/prior_auth
-
-# Example — outbox agent locks decide + enqueue seam
-grit claim -a wishlist-009 -i "outbox on decide + MailDev worker" \
-  app/prior_auth/services/decide.py::decide_request \
-  app/prior_auth/services/common.py::audit_commit_refresh \
-  --ttl 3600
-# work only in: .grit/worktrees/wishlist-009/
-grit done -a wishlist-009
-```
-
-| Agent | Claim (write) | Notes |
-|-------|---------------|-------|
-| wishlist-008 | `app/prior_auth/router.py` list/get helpers if extending; else mostly new route symbols after first commit + reindex | May land via plain worktree if already started |
-| wishlist-009 | `decide_request`, `audit_commit_refresh`; new `app/outbox/*` after create + reindex | Compose YAML is whole-file — serialize vs other compose editors |
-| wishlist-010 | `UserRole`, `get_audit`, `require_role` / deps | Enum migration: serialize alembic heads |
-| wishlist-011 | `create_prior_auth`, `submit_prior_auth` | Own migration file; claim after 009/010 `done` if head linearization needed |
-| wishlist-012 | docs only — grit optional | Run after code features merge |
-
-**Alembic:** grit does not merge migration graphs. Prefer one migration per feature on a linear `down_revision` chain; if two agents need schema in parallel, finish one `grit done` before the other starts its migration, or give schema to a single agent first.
-
-**Main tree must be clean** before `grit done` (grit skips merge if the primary checkout is dirty).
+Features were landed as separate PRs (workload → outbox → auditor → idempotency → docs) with linear Alembic heads. For future parallel agents: grit + `./scripts/grit_reindex.sh` (see `AGENTS.md`); still serialize Alembic.
 
 ---
 
-## Feature breakdown (`harness/feature_list.json`)
+## Feature breakdown (`harness/feature_list.json`) — all shipped
 
 ### feat-008 — Reviewer workload API (**medium**)
 
@@ -228,14 +200,14 @@ Remove wishlist items from “Cut list”; document MailDev, workload, auditor, 
 
 ---
 
-## Implementation order (verify each)
+## Implementation order — complete
 
 ```
-1. feat-008 workload          → pytest green; gates
-2. feat-009 outbox+MailDev    → pytest + compose demo path
-3. feat-010 auditor           → pytest; enum migration careful
-4. feat-011 Idempotency-Key   → pytest replay/conflict
-5. feat-012 docs/demo         → demo.sh + README
+1. feat-008 workload          ✓
+2. feat-009 outbox+MailDev    ✓
+3. feat-010 auditor           ✓
+4. feat-011 Idempotency-Key   ✓
+5. feat-012 docs/demo         ✓
 ```
 
 Postgres enum alter: use `ALTER TYPE … ADD VALUE` in a migration that does not run inside a transaction block if required (`alembic` `commit` pattern), or recreate enum — match existing project style.
@@ -271,4 +243,4 @@ Postgres enum alter: use `ALTER TYPE … ADD VALUE` in a migration that does not
 - [x] `./scripts/gates.sh` green; compose includes MailDev + worker
 - [x] `./scripts/demo.sh` shows decide → MailDev message
 - [x] Evidence in `harness/feature_list.json` + `progress.md`
-- [ ] PRs labeled per lane (prefer four small PRs over one high blob) — parent / merge time
+- [x] Split PRs by lane (workload / outbox / auditor / idempotency / docs)

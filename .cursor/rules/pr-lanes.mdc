@@ -5,6 +5,8 @@ alwaysApply: true
 
 # PR lanes (required)
 
+**Never commit or push directly to `main`.** Branch from latest `main`, push the branch, open a PR (`gh pr create --base main`), merge via GitHub. Docs/harness/code and hotfixes are not exempt.
+
 Every PR **must** be classified into exactly one lane and labeled on GitHub: `low`, `medium`, or `high`.
 
 ## Lane definitions
