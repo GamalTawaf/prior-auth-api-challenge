@@ -97,13 +97,36 @@ Audit writes in the **same DB transaction** as the state change.
 - **COI** — reviewer treats that member; blocked from claim/decide
 - **Final** — `decided`; appeals out of scope
 
+### Clinical note — optional
+
+Challenge: offices *can* attach a clinical note. We treat it as **optional** (`null` /
+omitted). Requiring it would invent a UM rule they did not state. When present, max
+10k chars (app + schema).
+
+### Procedure / diagnosis codes — format only
+
+CPT/HCPCS and ICD-10 are regex shape checks, not codebook membership. A well-formed but
+unknown code passes intake; clinical validity is the reviewer’s job. Codebooks and
+external validators are out of scope (cut list).
+
 ### Units > 30
 
 Hard validation error with a “likely typo” message. Fail closed rather than soft-warn.
+Enforced in the submit service only; the DB CHECK is `units >= 1`. The typo cap is
+product policy at the API boundary, not a storage invariant (raw SQL could insert >30).
 
-### Timezone
+### Timezone / DOS window
 
-DOS stored as `date`. “Today” evaluated in `America/New_York` via `app/clock.py`.
+DOS stored as `date`. “Today” and the one-year far bound use `America/New_York` via
+`app/clock.py`. “More than a year out” = strictly after `today + 365` days (not a
+calendar-year rollover).
+
+### Support lookup — correlation_id only
+
+Failed submits return `correlation_id` on the 422. Support looks up
+`GET /v1/support/intake-rejections/{correlation_id}` (office: own practice; admin: all).
+No free-text search by member / DOS / submitter — YAGNI for this take-home; the id is
+the handoff from office → desk.
 
 ### JWT secret — accepted risk, not production-ready
 
@@ -136,9 +159,10 @@ are already conflict-safe via the state machine, so only submit takes the header
 
 ### Reviewer workload
 
-`GET /v1/reviewers/workload` — **ops_admin only**. Returns every `role=reviewer` with
-`open_count` = count of `status=in_review` claimed by that reviewer (LEFT JOIN, zeros
-included so team leads see idle staff).
+Challenge “team leads want open counts” → **ops_admin** (no separate lead role).
+`GET /v1/reviewers/workload` returns every `role=reviewer` with `open_count` = count of
+`status=in_review` claimed by that reviewer (LEFT JOIN, zeros included so idle staff
+show up).
 
 ### Decision notify (outbox → MailDev)
 
