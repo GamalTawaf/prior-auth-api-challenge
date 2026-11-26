@@ -3,11 +3,18 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Header, Query
 from sqlalchemy import and_, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app.identity.models import User, UserRole
+from app.prior_auth.idempotency import (
+    body_hash,
+    get_record,
+    normalize_key,
+    resolve_existing,
+)
 from app.prior_auth.limits import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from app.prior_auth.models import PriorAuthRequest, RequestStatus
 from app.prior_auth.schemas import (
@@ -43,9 +50,52 @@ PageLimit = Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)]
 AfterId = Annotated[uuid.UUID | None, Query()]
 
 
-@router.post("/v1/prior-auths", response_model=PriorAuthOut, status_code=201)
-def create_prior_auth(body: SubmitPriorAuthIn, db: DbSession, ctx: OfficeUser) -> PriorAuthOut:
-    request = submit_prior_auth(db, ctx, body)
+@router.post(
+    "/v1/prior-auths",
+    response_model=PriorAuthOut,
+    status_code=201,
+    summary="Submit prior auth",
+    description=(
+        "Optional `Idempotency-Key` (unique per practice): same key + same body "
+        "replays the stored 201; same key + different body → 409 "
+        "`idempotency_key_reuse`. Keys are retained ~24h (prune optional)."
+    ),
+)
+def create_prior_auth(
+    body: SubmitPriorAuthIn,
+    db: DbSession,
+    ctx: OfficeUser,
+    idempotency_key: Annotated[
+        str | None,
+        Header(
+            alias="Idempotency-Key",
+            description="Partner retry key; scoped to the caller's practice.",
+        ),
+    ] = None,
+) -> PriorAuthOut:
+    key = normalize_key(idempotency_key)
+    request_hash: str | None = None
+    if key is not None and ctx.practice_id is not None:
+        request_hash = body_hash(body)
+        existing = get_record(db, ctx.practice_id, key)
+        if existing is not None:
+            return resolve_existing(existing, request_hash)
+    try:
+        request = submit_prior_auth(
+            db,
+            ctx,
+            body,
+            idempotency_key=key,
+            request_hash=request_hash,
+        )
+    except IntegrityError:
+        db.rollback()
+        if key is None or request_hash is None:
+            raise
+        raced = get_record(db, ctx.practice_id, key)
+        if raced is None:
+            raise
+        return resolve_existing(raced, request_hash)
     return to_prior_auth_out(request)
 
 

@@ -95,8 +95,8 @@
       "name": "Idempotency-Key on submit",
       "description": "Idempotency-Key header on POST /v1/prior-auths only; unique (practice_id, key); same body replay 201; different body 409 idempotency_key_reuse; missing header = current behavior. Lane: high.",
       "dependencies": ["feat-010"],
-      "status": "pending",
-      "evidence": "",
+      "status": "done",
+      "evidence": "uv run pytest tests/test_idempotency.py -v → 13 passed; ./scripts/gates.sh green; alembic 20261125_idempotency (down_revision 20261125_auditor)",
       "verify": "uv run pytest tests/test_idempotency.py -v"
     },
     {

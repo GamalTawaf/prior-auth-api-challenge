@@ -202,9 +202,20 @@ def _items_from_openapi(spec: dict[str, Any]) -> list[dict[str, Any]]:
                 continue
             name = op.get("summary") or f"{method.upper()} {path}"
             token = _TOKEN_FOR.get((method.lower(), path), "{{token}}")
+            headers: list[dict[str, Any]] = [
+                {"key": "Content-Type", "value": "application/json"},
+            ]
+            if method.lower() == "post" and path == "/v1/prior-auths":
+                headers.append(
+                    {
+                        "key": "Idempotency-Key",
+                        "value": "{{idempotency_key}}",
+                        "description": "Optional; same key+body replays 201",
+                    }
+                )
             request: dict[str, Any] = {
                 "method": method.upper(),
-                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "header": headers,
                 "url": _postman_url(path),
                 "auth": _bearer(token),
                 "description": (
@@ -251,6 +262,7 @@ def main() -> None:
                 "value": "00000000-0000-4000-8000-000000000002",
             },
             {"key": "correlation_id", "value": "demo-correlation"},
+            {"key": "idempotency_key", "value": "demo-submit-1"},
         ],
     }
 
@@ -306,6 +318,12 @@ def main() -> None:
             "value": "00000000-0000-4000-8000-000000000002",
             "enabled": True,
             "description": "Replace with procedures[0].id from Submit/Claim response",
+        },
+        {
+            "key": "idempotency_key",
+            "value": "demo-submit-1",
+            "enabled": True,
+            "description": "Optional Idempotency-Key for POST /v1/prior-auths",
         },
         {
             "key": "correlation_id",

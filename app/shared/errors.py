@@ -65,9 +65,25 @@ def raise_field(error_code: str, field: str, message: str) -> NoReturn:
     raise_validation([FieldError(error_code=error_code, field=field, message=message)])
 
 
-class ConflictError(Exception):
-    def __init__(self, detail: str = "Conflict"):
+class BadRequestError(Exception):
+    def __init__(
+        self,
+        errors: list[FieldError],
+        detail: str = "Bad request",
+    ):
+        self.errors = errors
         self.detail = detail
+        super().__init__(detail)
+
+
+def raise_bad_request(errors: list[FieldError], *, detail: str = "Bad request") -> NoReturn:
+    raise BadRequestError(errors=errors, detail=detail)
+
+
+class ConflictError(Exception):
+    def __init__(self, detail: str = "Conflict", *, errors: list[FieldError] | None = None):
+        self.detail = detail
+        self.errors = errors or []
         super().__init__(detail)
 
 
@@ -171,8 +187,18 @@ async def request_validation_handler(request: Request, exc: RequestValidationErr
     return JSONResponse(status_code=422, content=content)
 
 
+async def bad_request_handler(_request: Request, exc: BadRequestError) -> JSONResponse:
+    body = ProblemBody(detail=exc.detail, errors=exc.errors)
+    content = body.model_dump()
+    return JSONResponse(status_code=400, content=content)
+
+
 async def conflict_handler(_request: Request, exc: ConflictError) -> JSONResponse:
-    return JSONResponse(status_code=409, content={"detail": exc.detail})
+    content: dict[str, Any] = {"detail": exc.detail}
+    if exc.errors:
+        dumped_errors = [err.model_dump() for err in exc.errors]
+        content["errors"] = dumped_errors
+    return JSONResponse(status_code=409, content=content)
 
 
 async def not_found_handler(_request: Request, exc: NotFoundError) -> JSONResponse:

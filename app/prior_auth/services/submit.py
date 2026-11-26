@@ -6,20 +6,35 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.audit.writer import write_audit
 from app.clock import get_today
 from app.identity.schemas import UserContext
 from app.intake.persist import persist_intake_rejection
 from app.master_data.models import Coverage, PatientPracticeLink
+from app.prior_auth.idempotency import store_record
 from app.prior_auth.models import PriorAuthProcedure, PriorAuthRequest, RequestStatus
 from app.prior_auth.schemas import SubmitPriorAuthIn
-from app.prior_auth.services.common import audit_commit_refresh
+from app.prior_auth.serializers import to_prior_auth_out
 from app.shared.errors import FieldError, raise_field, raise_validation
 
 ICD10_RE = re.compile(r"^[A-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?$", re.IGNORECASE)
 CPT_RE = re.compile(r"^[A-Z0-9]{5}$", re.IGNORECASE)
 
 
-def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) -> PriorAuthRequest:
+def _commit_refresh(db: Session, request: PriorAuthRequest) -> PriorAuthRequest:
+    db.commit()
+    db.refresh(request)
+    return request
+
+
+def submit_prior_auth(
+    db: Session,
+    ctx: UserContext,
+    body: SubmitPriorAuthIn,
+    *,
+    idempotency_key: str | None = None,
+    request_hash: str | None = None,
+) -> PriorAuthRequest:
     if ctx.practice_id is None:
         raise_field(
             "missing_practice",
@@ -161,9 +176,8 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
         request.procedures.append(PriorAuthProcedure(code=code_norm, units=proc.units, sequence=i))
     db.add(request)
     db.flush()
-    return audit_commit_refresh(
+    write_audit(
         db,
-        request,
         actor_user_id=ctx.user_id,
         action="submit",
         payload={
@@ -171,4 +185,22 @@ def submit_prior_auth(db: Session, ctx: UserContext, body: SubmitPriorAuthIn) ->
             "member_id": str(body.member_id),
             "procedure_codes": [p.code for p in request.procedures],
         },
+        request_id=request.id,
     )
+    # Separate guards (not one `and` chain) so `and`→`or` cannot no-op on HTTP.
+    # practice_id is already required at the top of this function.
+    if idempotency_key is None:
+        return _commit_refresh(db, request)
+    if request_hash is None:
+        return _commit_refresh(db, request)
+    db.refresh(request)
+    response = to_prior_auth_out(request)
+    store_record(
+        db,
+        practice_id=ctx.practice_id,
+        key=idempotency_key,
+        request_hash=request_hash,
+        request_id=request.id,
+        response=response,
+    )
+    return _commit_refresh(db, request)
