@@ -19,6 +19,13 @@ services:
       - "1080:1080"
       - "1025:1025"
 
+  otel-lgtm:
+    image: grafana/otel-lgtm:0.41.1
+    ports:
+      - "3000:3000"
+      - "4317:4317"
+      - "4318:4318"
+
   api:
     build: .
     ports:
@@ -26,9 +33,13 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://prior:prior@db:5432/prior_auth
       JWT_SECRET: dev-only-change-me-32bytes-min!!
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+      OTEL_SERVICE_NAME: prior-auth-api
     depends_on:
       db:
         condition: service_healthy
+      otel-lgtm:
+        condition: service_started
 
   outbox-worker:
     build: .
