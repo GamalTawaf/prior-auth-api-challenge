@@ -13,7 +13,7 @@ description: >-
 2. Confirm not on `main` for commits: work on `docs/…` or `feat/…` only.
 3. `unset GITHUB_TOKEN` before `gh` if auth fails with 401 (keyring account is valid).
 4. `./scripts/ensure_pr_labels.sh`
-5. Classify lane (`low` | `medium` | `high`) from **full** diff — see `.cursor/rules/pr-lanes.mdc`.
+5. Classify lane (`low` | `medium` | `high`) from **full** diff — see `.agent/rules/pr-lanes.mdc`.
 6. Push: `git push -u origin HEAD`
 7. Create:
 
