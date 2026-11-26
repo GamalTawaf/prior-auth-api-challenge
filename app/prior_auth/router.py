@@ -40,14 +40,9 @@ from app.shared.deps import (
     OfficeUser,
     ReviewerUser,
 )
-from app.shared.errors import (
-    OPENAPI_CONFLICT_RESPONSE,
-    OPENAPI_ERROR_RESPONSES,
-    ForbiddenError,
-    NotFoundError,
-)
+from app.shared.errors import OPENAPI_ERROR_RESPONSES, ForbiddenError, NotFoundError
 
-router = APIRouter(tags=["prior-auth"])
+router = APIRouter(tags=["prior-auth"], responses=OPENAPI_ERROR_RESPONSES)
 
 _PROCEDURES = selectinload(PriorAuthRequest.procedures)
 
@@ -65,7 +60,6 @@ AfterId = Annotated[uuid.UUID | None, Query()]
         "replays the stored 201; same key + different body → 409 "
         "`idempotency_key_reuse`. Keys are retained ~24h (prune optional)."
     ),
-    responses=OPENAPI_ERROR_RESPONSES,
 )
 def create_prior_auth(
     body: SubmitPriorAuthIn,
@@ -161,31 +155,19 @@ def review_queue(
     return [to_prior_auth_out(r) for r in rows]
 
 
-@router.post(
-    "/v1/prior-auths/{request_id}/claim",
-    response_model=PriorAuthOut,
-    responses=OPENAPI_CONFLICT_RESPONSE,
-)
+@router.post("/v1/prior-auths/{request_id}/claim", response_model=PriorAuthOut)
 def claim(request_id: uuid.UUID, db: DbSession, ctx: ReviewerUser) -> PriorAuthOut:
     request = claim_request(db, ctx, request_id)
     return to_prior_auth_out(request)
 
 
-@router.post(
-    "/v1/prior-auths/{request_id}/decision",
-    response_model=PriorAuthOut,
-    responses={**OPENAPI_CONFLICT_RESPONSE, 422: OPENAPI_ERROR_RESPONSES[422]},
-)
+@router.post("/v1/prior-auths/{request_id}/decision", response_model=PriorAuthOut)
 def decide(request_id: uuid.UUID, body: DecideIn, db: DbSession, ctx: ReviewerUser) -> PriorAuthOut:
     request = decide_request(db, ctx, request_id, body)
     return to_prior_auth_out(request)
 
 
-@router.post(
-    "/v1/prior-auths/{request_id}/reassign",
-    response_model=PriorAuthOut,
-    responses={**OPENAPI_CONFLICT_RESPONSE, 422: OPENAPI_ERROR_RESPONSES[422]},
-)
+@router.post("/v1/prior-auths/{request_id}/reassign", response_model=PriorAuthOut)
 def reassign(
     request_id: uuid.UUID, body: ReassignIn, db: DbSession, ctx: AdminUser
 ) -> PriorAuthOut:

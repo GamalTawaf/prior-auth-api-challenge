@@ -96,7 +96,7 @@ def test_openapi_documents_problem_body_for_submit_errors(client):
     assert set(field_error) >= {"error_code", "field", "message"}
 
     post = spec["paths"]["/v1/prior-auths"]["post"]
-    for code in ("400", "409", "422"):
+    for code in ("400", "401", "403", "404", "409", "422"):
         assert code in post["responses"]
         content = post["responses"][code]["content"]["application/json"]
         ref = content["schema"].get("$ref", "")
@@ -107,6 +107,33 @@ def test_openapi_documents_problem_body_for_submit_errors(client):
     example = post["responses"]["409"]["content"]["application/json"].get("example")
     assert example is not None
     assert example["errors"][0]["error_code"] == "idempotency_key_reuse"
+
+
+def test_openapi_partner_routes_use_problem_body_not_http_validation_error(client):
+    spec = client.app.openapi()
+    error_codes = ("400", "401", "403", "404", "409", "422")
+    for path, methods in spec["paths"].items():
+        if path == "/v1/health":
+            continue
+        for method, op in methods.items():
+            if method.startswith("x-"):
+                continue
+            responses = op.get("responses") or {}
+            for code in error_codes:
+                assert code in responses, f"{method.upper()} {path} missing {code}"
+                schema = (
+                    responses[code].get("content", {}).get("application/json", {}).get("schema")
+                    or {}
+                )
+                ref = schema.get("$ref", "")
+                assert ref.endswith("/ProblemBody"), f"{method.upper()} {path} {code} → {schema}"
+            # FastAPI must not leave the default validation schema in place.
+            for code, resp in responses.items():
+                schema = (resp.get("content") or {}).get("application/json", {}).get("schema") or {}
+                ref = schema.get("$ref", "")
+                assert not ref.endswith("/HTTPValidationError"), (
+                    f"{method.upper()} {path} {code} still HTTPValidationError"
+                )
 
 
 def test_no_header_still_works_alongside_keyed(client):

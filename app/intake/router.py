@@ -5,8 +5,9 @@ from fastapi import APIRouter
 from app.intake.schemas import IntakeRejectionOut
 from app.intake.services import get_intake_rejection
 from app.shared.deps import DbSession, OfficeOrAdmin
+from app.shared.errors import OPENAPI_ERROR_RESPONSES
 
-router = APIRouter(tags=["support"])
+router = APIRouter(tags=["support"], responses=OPENAPI_ERROR_RESPONSES)
 
 
 @router.get(

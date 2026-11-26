@@ -5,7 +5,7 @@ import uuid
 from typing import Any, NoReturn
 
 import jwt
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -43,7 +43,7 @@ class ProblemBody(BaseModel):
     correlation_id: str | None = None
 
 
-# OpenAPI response fragments — keep Swagger aligned with conflict_handler / validation handlers.
+# OpenAPI — applied on partner routers so Swagger matches live ProblemBody envelope.
 IDEMPOTENCY_KEY_REUSE_EXAMPLE = {
     "detail": "Idempotency-Key was already used with a different request body",
     "errors": [
@@ -55,16 +55,21 @@ IDEMPOTENCY_KEY_REUSE_EXAMPLE = {
     ],
 }
 
-OPENAPI_CONFLICT_RESPONSE: dict[int | str, dict[str, Any]] = {
-    409: {
-        "description": "Conflict (e.g. already claimed, invalid transition)",
-        "model": ProblemBody,
-    },
-}
-
 OPENAPI_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     400: {
         "description": "Bad request (e.g. invalid Idempotency-Key)",
+        "model": ProblemBody,
+    },
+    401: {
+        "description": "Missing or invalid bearer token",
+        "model": ProblemBody,
+    },
+    403: {
+        "description": "Forbidden (role or conflict-of-interest)",
+        "model": ProblemBody,
+    },
+    404: {
+        "description": "Resource not found",
         "model": ProblemBody,
     },
     409: {
@@ -239,16 +244,26 @@ async def bad_request_handler(_request: Request, exc: BadRequestError) -> JSONRe
 
 
 async def conflict_handler(_request: Request, exc: ConflictError) -> JSONResponse:
-    content: dict[str, Any] = {"detail": exc.detail}
-    if exc.errors:
-        dumped_errors = [err.model_dump() for err in exc.errors]
-        content["errors"] = dumped_errors
+    body = ProblemBody(detail=exc.detail, errors=exc.errors)
+    content = body.model_dump()
     return JSONResponse(status_code=409, content=content)
 
 
 async def not_found_handler(_request: Request, exc: NotFoundError) -> JSONResponse:
-    return JSONResponse(status_code=404, content={"detail": exc.detail})
+    body = ProblemBody(detail=exc.detail)
+    content = body.model_dump()
+    return JSONResponse(status_code=404, content=content)
 
 
 async def forbidden_handler(_request: Request, exc: ForbiddenError) -> JSONResponse:
-    return JSONResponse(status_code=403, content={"detail": exc.detail})
+    body = ProblemBody(detail=exc.detail)
+    content = body.model_dump()
+    return JSONResponse(status_code=403, content=content)
+
+
+async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
+    """Wrap auth/role HTTPException detail strings in the same ProblemBody envelope."""
+    detail = exc.detail if isinstance(exc.detail, str) else "Request failed"
+    body = ProblemBody(detail=detail)
+    content = body.model_dump()
+    return JSONResponse(status_code=exc.status_code, content=content, headers=exc.headers)
