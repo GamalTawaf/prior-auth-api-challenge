@@ -17,7 +17,7 @@ uv run pytest -q --cov=app --cov-report=term-missing   # fail_under=100
 
 OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-Observability (Compose): Grafana LGTM at [http://localhost:3000](http://localhost:3000) — Tempo / Prometheus / Loki via OTLP (`api` → `http://otel-lgtm:4318`). No login required for local LGTM.
+Observability (Compose): Grafana LGTM at [http://localhost:3000](http://localhost:3000) — Tempo / Prometheus / Loki via OTLP (`api` + `outbox-worker` → `http://otel-lgtm:4318`). Explore Tempo for HTTP + SQL + `smtp.send` spans; Prometheus for `http.server.*` and `db.client.connections.usage`. No Redis. No login required for local LGTM.
 
 ## Seed tokens
 
@@ -288,4 +288,4 @@ Covers: failed submit → support → happy submit → **Idempotency-Key replay*
 - Flat domain packages under `app/` (identity, master_data, prior_auth, intake, audit, outbox, shared)
 - Thin routers; rules in `prior_auth/services/*`
 - Role-specific response schemas (member strips note + denial reason)
-- OpenTelemetry in `telemetry.py` (console default; Compose sets `OTEL_EXPORTER_OTLP_ENDPOINT` → `grafana/otel-lgtm` for traces, metrics, and logs)
+- OpenTelemetry in `telemetry.py` (console default; Compose sets `OTEL_EXPORTER_OTLP_ENDPOINT` → `grafana/otel-lgtm` for traces, metrics, and logs). Instruments FastAPI (HTTP spans + server metrics), SQLAlchemy (DB spans + connection metrics), logging, and manual `smtp.send` spans in the outbox mailer. API + `outbox-worker` both export. No Redis in this stack.

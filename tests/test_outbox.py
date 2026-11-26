@@ -126,6 +126,29 @@ def test_send_smtp_uses_stdlib(monkeypatch: pytest.MonkeyPatch):
     assert captured[1][1] == "office@ex.com"
 
 
+def test_send_smtp_records_error_on_span(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "smtp_host", "maildev")
+    monkeypatch.setattr(settings, "smtp_port", 1025)
+    monkeypatch.setattr(settings, "smtp_from", "noreply@prior-auth.local")
+
+    class BoomSMTP:
+        def __init__(self, host: str, port: int):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send_message(self, _msg):
+            raise RuntimeError("smtp boom")
+
+    monkeypatch.setattr("app.outbox.mailer.smtplib.SMTP", BoomSMTP)
+    with pytest.raises(RuntimeError, match="smtp boom"):
+        send_smtp("office@ex.com", "subj", "body")
+
+
 def test_render_body_uses_member_id_when_no_member():
     request = MagicMock(spec=PriorAuthRequest)
     request.id = "rid"
@@ -175,12 +198,18 @@ def test_run_loop_sleeps_then_stops(monkeypatch: pytest.MonkeyPatch):
 
 def test_main_delegates(monkeypatch: pytest.MonkeyPatch):
     calls: list[int] = []
+    configured: list[int] = []
+
+    def fake_configure() -> None:
+        configured.append(1)
 
     def fake_loop() -> None:
         calls.append(1)
 
+    monkeypatch.setattr("app.outbox.worker.configure_telemetry", fake_configure)
     monkeypatch.setattr("app.outbox.worker.run_loop", fake_loop)
     main()
+    assert configured == [1]
     assert calls == [1]
 
 

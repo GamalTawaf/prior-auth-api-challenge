@@ -11,6 +11,7 @@ import time
 from app.config import settings
 from app.db import SessionLocal
 from app.outbox.services import process_batch
+from app.telemetry import configure_telemetry
 
 
 def run_once() -> int:
@@ -27,6 +28,7 @@ def run_loop(*, once: bool = False) -> None:
 
 
 def main() -> None:
+    configure_telemetry()
     run_loop()
 
 
