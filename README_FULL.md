@@ -2,7 +2,9 @@
 
 Durable Python + PostgreSQL prior-auth backend (Oxbridge Health take-home). Domain packages, one `/v1` surface, audit in the same transaction as state changes, role-scoped response schemas.
 
-Quick start and Postman walkthrough: [`README.md`](README.md).
+**Submission README** (exactly the three items the challenge asks for — how to run, decisions/assumptions, how AI was used): [`README.md`](README.md).
+
+This file is the deep reference: seed tokens, matrices detail, Postman cases, CI, mutmut, observability.
 
 ## Who this is for
 
@@ -19,6 +21,8 @@ API roles are named for how people talk about the work:
 Primary keys on models and in JSON are named **`uuid`** (not `id`) so the name matches the type. DB columns remain `id` for Postgres FKs.
 
 ## How to run
+
+Step-by-step: [`README.md`](README.md#how-to-run-it). Short form:
 
 ```bash
 # Requires Python 3.15.x (Homebrew 3.15.2), Docker, uv
@@ -53,6 +57,8 @@ Stable IDs (for curls): practice `11111111-…1111`, member `22222222-…2222`, 
 JWT secret must match the API (`JWT_SECRET`, default `dev-only-change-me-32bytes-min!!` in Compose).
 
 ## Decisions
+
+Ambiguity callouts (brief unclear → what we decided): [`README.md`](README.md#decisions-and-assumptions). Matrices and invariants below for walkthrough detail.
 
 ### State machine
 
@@ -302,7 +308,38 @@ export JWT_SECRET=dev-only-change-me-32bytes-min!!   # must match Compose
 
 Import both files in Postman (re-import after regenerating). Env JWTs use a fixed long-lived `exp` for stable generate/check; they still require `JWT_SECRET` to match Compose. Each request has a role token, demo body, and Tests scripts that write `request_id` / `procedure_id` / `correlation_id` from the response — Submit → Claim → Decide with no manual paste. Submit also refreshes `idempotency_key` on each Send. Pre-commit/CI byte-compares these files to a fresh generate.
 
-Manual walkthrough (main README): [`README.md`](README.md).
+### Postman cases
+
+Use the role token already set on each request (or switch env `token`).
+
+#### A. Intake rejection → support lookup
+
+1. **Submit Prior Auth** — set body `member_id` to `{{member_unlinked_id}}` → Send → expect **422**.
+2. Env `correlation_id` should update from the response.
+3. **GET support intake-rejection** → Send → expect **200** with `field_errors`.
+
+#### B. Happy path (submit → claim → decide → email)
+
+1. **Submit Prior Auth** — body uses `{{member_id}}` (default) → **201**.
+2. **Claim** → **200** (`in_review`).
+3. **Decide** — body already has `{{procedure_id}}` / `approved` → **200**.
+4. Check MailDev for the decision notice ([http://localhost:1080](http://localhost:1080)).
+
+#### C. Claim race / COI
+
+1. After a successful Claim, **Claim** again → **409**.
+2. Submit a new PA (step B.1), then Claim with auth `{{reviewer_coi_token}}` → **403**.
+
+#### D. Member portal
+
+1. After a decided (or submitted) PA, **GET me/prior-auths** (member token) → list without clinical note.
+2. **GET me/prior-auth by id** using `{{request_id}}`.
+
+#### E. Ops extras
+
+1. **GET reviewers/workload** (admin) after some claims.
+2. **GET audit** (auditor token) for `{{request_id}}`.
+3. Submit twice with the same `Idempotency-Key` header → same prior-auth `id`.
 
 ## Live walkthrough
 
@@ -316,22 +353,9 @@ Covers: failed submit → support → happy submit → **Idempotency-Key replay*
 
 ## How AI was used
 
-- Planning: LLM council notes in `docs/council/` + written plans under `docs/plans/` (MVP then wishlist).
-- Implementation: Cursor agents against those plans (TDD, surgical diffs). Humans kept Decisions, cut list, and race/audit/redaction invariants.
-- Wrong turns fixed: uv only offered Python 3.15 beta → pin Homebrew/Docker **3.15.2**; install uv onto `python:3.15.2-slim` (no official uv image); mutmut 3 needs `source_paths=app/` with `only_mutate` on services.
-- Tests are outside-in HTTP (except persistence-truth claim race + DB CHECK).
+Submission narrative (what was asked, where it went wrong, what changed): [`README.md`](README.md#how-you-used-ai).
 
-### Extras that AI made cheap to ship
-
-Beyond the core prior-auth rules, this submission includes an **AI-oriented harness and production-shaped seams** that used to be “nice but expensive.” With agents, those steps are much less time-consuming, so the build can carry them for the value they add without eating the schedule:
-
-- **Agent harness** — `AGENTS.md` / `CLAUDE.md`, shared `.agent/` (inventory, handoff, rules, skills; Cursor loads rules/skills via `.cursor/` symlinks)
-- **CI/CD** — path-filtered required checks, lint/test/mutate/image as callable workflows, Postman freshness gate, branch protection as code
-- **OpenTelemetry** — FastAPI + SQLAlchemy + logging + manual `smtp.send` spans; Compose → Grafana LGTM (Tempo / Prometheus / Loki)
-- **Partner kit** — live OpenAPI, generated Postman collection/env, `README.md` walkthrough
-- **Quality bar** — 100% coverage, mutmut on hot services, coding gates on every commit
-
-The repo is also shaped so **AI agents can coordinate**: durable plans, risk-lane PR labels, gates that fail loudly, and docs that name the people in the system (not only role enums).
+Extras AI made cheap to keep (not required by the brief): agent harness under `.agent/`, path-filtered CI, OTel → Grafana LGTM, Postman generator, 100% coverage + mutmut on hot services.
 
 ## Design notes
 

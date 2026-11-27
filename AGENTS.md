@@ -77,8 +77,8 @@ Mirrored in `.agent/rules/coding-gates.mdc`.
 | `.agent/feature_list.json` | Shipped feature inventory + evidence |
 | `.agent/progress.md` | Compact shipped log |
 | `.agent/session-handoff.md` | System snapshot + walkthrough |
-| `README.md` | Quick start + Postman walkthrough |
-| `README_FULL.md` | Decisions, CI, AI usage, full how-to-run |
+| `README.md` | Challenge submission: how to run, decisions/assumptions, how AI was used |
+| `README_FULL.md` | Deep reference: Postman, CI, matrices detail, observability |
 | `./init.sh` / `./scripts/gates.sh` / `./scripts/demo.sh` | Verify + live demo |
 
 ## Verification
