@@ -64,7 +64,7 @@ Mirrored in `.agent/rules/coding-gates.mdc`.
 │   ├── master_data/      # practices, members, coverage, COI
 │   ├── prior_auth/       # submit/claim/decide/reassign + routers
 │   ├── intake/           # IntakeRejection + support lookup
-│   ├── audit/            # AuditEvent + writer + audit router
+│   ├── audit/            # AuditEvent + services + audit router
 │   └── outbox/           # decision notify (worker + MailDev)
 ├── tests/ / scripts/ / postman/
 ```

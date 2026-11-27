@@ -7,7 +7,7 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.audit.writer import write_audit
+from app.audit.services import write_audit
 from app.clock import get_today
 from app.identity.schemas import UserContext
 from app.intake.services import persist_intake_rejection
