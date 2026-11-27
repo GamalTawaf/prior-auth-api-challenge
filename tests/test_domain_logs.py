@@ -106,7 +106,7 @@ def test_submit_claim_conflict_reassign_decide_logs(client: TestClient, caplog):
 
 def test_intake_rejection_logs_without_payload(client: TestClient, caplog):
     practice_id = str(client.seed["practice"].uuid)
-    with caplog.at_level(logging.WARNING, logger="app.intake.persist"):
+    with caplog.at_level(logging.WARNING, logger="app.intake.services"):
         bad = client.post(
             "/v1/prior-auths",
             headers=role_headers(client, "office"),

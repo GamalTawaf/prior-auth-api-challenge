@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.audit.writer import write_audit
 from app.clock import get_today
 from app.identity.schemas import UserContext
-from app.intake.persist import persist_intake_rejection
+from app.intake.services import persist_intake_rejection
 from app.master_data.models import Coverage, PatientPracticeLink
 from app.prior_auth.idempotency import store_record
 from app.prior_auth.models import PriorAuthProcedure, PriorAuthRequest, RequestStatus
