@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 from sqlalchemy import update
@@ -16,6 +17,8 @@ from app.prior_auth.services.common import (
     has_coi,
 )
 from app.shared.errors import ConflictError, raise_field
+
+_log = logging.getLogger(__name__)
 
 
 def reassign_request(
@@ -64,14 +67,22 @@ def reassign_request(
     request = get_request(db, request_id, load_procedures=True)
     # in_review rows always have a claimant (DB CHECK); previous is never None here.
     previous_str = str(previous)
+    request_id_str = str(request_id)
+    to_str = str(reviewer_id)
+    _log.info(
+        "prior auth reassigned request_id=%s from=%s to=%s",
+        request_id_str,
+        previous_str,
+        to_str,
+    )
     return audit_commit_refresh(
         db,
         request,
         actor_user_id=admin.user_id,
         action="reassign",
         payload={
-            "request_id": str(request_id),
+            "request_id": request_id_str,
             "from": previous_str,
-            "to": str(reviewer_id),
+            "to": to_str,
         },
     )

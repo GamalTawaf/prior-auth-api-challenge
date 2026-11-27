@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 from sqlalchemy.orm import Session
@@ -11,6 +12,8 @@ from app.prior_auth.models import ProcedureDecision, RequestStatus
 from app.prior_auth.schemas import DecideIn
 from app.prior_auth.services.common import audit_commit_refresh, get_request_for_update, has_coi
 from app.shared.errors import ConflictError, FieldError, ForbiddenError, raise_validation
+
+_log = logging.getLogger(__name__)
 
 
 def decide_request(db: Session, reviewer: UserContext, request_id: uuid.UUID, body: DecideIn):
@@ -77,10 +80,21 @@ def decide_request(db: Session, reviewer: UserContext, request_id: uuid.UUID, bo
         for o in body.outcomes
     ]
     enqueue_decision_notice(db, request)
+    request_id_str = str(request_id)
+    reviewer_id_str = str(reviewer.user_id)
+    approved = sum(1 for o in body.outcomes if o.decision == "approved")
+    denied = sum(1 for o in body.outcomes if o.decision == "denied")
+    _log.info(
+        "prior auth decided request_id=%s reviewer_id=%s approved=%s denied=%s",
+        request_id_str,
+        reviewer_id_str,
+        approved,
+        denied,
+    )
     return audit_commit_refresh(
         db,
         request,
         actor_user_id=reviewer.user_id,
         action="decide",
-        payload={"request_id": str(request_id), "outcomes": outcomes_payload},
+        payload={"request_id": request_id_str, "outcomes": outcomes_payload},
     )

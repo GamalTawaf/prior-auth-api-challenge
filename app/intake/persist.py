@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 from sqlalchemy.orm import Session
@@ -8,6 +9,8 @@ from app.audit.writer import write_audit
 from app.intake.models import IntakeRejection
 from app.shared.errors import FieldError
 from app.telemetry import record_intake_rejection
+
+_log = logging.getLogger(__name__)
 
 
 def persist_intake_rejection(
@@ -44,4 +47,12 @@ def persist_intake_rejection(
     )
     db.commit()
     record_intake_rejection()
+    fields = [e.field for e in errors]
+    practice_id_log = str(practice_id)
+    _log.warning(
+        "intake rejected correlation_id=%s practice_id=%s fields=%s",
+        correlation_id,
+        practice_id_log,
+        fields,
+    )
     return correlation_id
