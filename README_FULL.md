@@ -37,7 +37,7 @@ uv run pytest -q --cov=app --cov-report=term-missing   # fail_under=100
 
 OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-Observability (Compose): Grafana LGTM at [http://localhost:3000](http://localhost:3000) — Tempo / Prometheus / Loki via OTLP (`api` + `outbox-worker` → `http://otel-lgtm:4318`). Explore Tempo for HTTP + SQL + `smtp.send` spans; Prometheus for `http.server.*` and `db.client.connections.usage`. No Redis. No login required for local LGTM.
+Observability (Compose): Grafana LGTM at [http://localhost:3000](http://localhost:3000) — Tempo / Prometheus / Loki via OTLP (`api` + `outbox-worker` → `http://otel-lgtm:4318`). Explore Tempo for HTTP + SQL + `smtp.send` spans; Prometheus for `http.server.*` and `db.client.connections.usage`; Loki for stdlib/uvicorn access logs and SQLAlchemy engine SQL (level via `LOG_LEVEL`, default `INFO`). No Redis. No login required for local LGTM.
 
 ## Seed tokens
 
