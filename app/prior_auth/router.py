@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app.identity.models import User, UserRole
+from app.prior_auth.helpers import apply_after_id, coi_free_clause, get_request, has_coi
 from app.prior_auth.idempotency import (
     body_hash,
     get_record,
@@ -26,11 +27,12 @@ from app.prior_auth.schemas import (
     SubmitPriorAuthIn,
 )
 from app.prior_auth.serializers import to_member_out, to_prior_auth_out
-from app.prior_auth.services.claim import claim_request
-from app.prior_auth.services.common import apply_after_id, coi_free_clause, get_request, has_coi
-from app.prior_auth.services.decide import decide_request
-from app.prior_auth.services.reassign import reassign_request
-from app.prior_auth.services.submit import submit_prior_auth
+from app.prior_auth.service import (
+    claim_request,
+    decide_request,
+    reassign_request,
+    submit_prior_auth,
+)
 from app.shared.deps import (
     AdminUser,
     CurrentUser,

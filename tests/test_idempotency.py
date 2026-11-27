@@ -244,7 +244,7 @@ def test_submit_with_key_but_no_hash_skips_store(client, db):
     from app.identity.schemas import UserContext
     from app.prior_auth.idempotency import IdempotencyRecord, get_record
     from app.prior_auth.schemas import SubmitPriorAuthIn
-    from app.prior_auth.services.submit import submit_prior_auth
+    from app.prior_auth.service import submit_prior_auth
     from sqlalchemy import func, select
 
     from tests.conftest import valid_submit_body

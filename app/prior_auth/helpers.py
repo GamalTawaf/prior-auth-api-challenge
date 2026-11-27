@@ -90,7 +90,7 @@ def get_request_for_update(
     *,
     load_procedures: bool = False,
 ) -> PriorAuthRequest:
-    """Row-lock helper; lives in do_not_mutate common so `for_update=True` is not a mutant target."""
+    """Row-lock helper so call sites do not pass a mutable for_update=True kwarg."""
     return get_request(db, request_id, for_update=True, load_procedures=load_procedures)
 
 

@@ -230,7 +230,7 @@ Root holds only entrypoints and runtime project files. App code is split by **do
     └── harness/
 ```
 
-**Rules:** No `repos/` package unless duplication appears twice. Routers stay thin; domain `services/` hold rules (mutmut targets `app/*/services` and `app/prior_auth/services`). Do not create empty domains “for later.”
+**Rules:** No `repos/` package unless duplication appears twice. Routers stay thin; domain `service.py` holds rules (mutmut targets `app/prior_auth/service.py`). Do not create empty domains “for later.”
 
 ---
 
@@ -382,7 +382,7 @@ Commands: `uv add fastapi …` · `uv add --dev pytest httpx mutmut ruff` · loc
 | Observability | OpenTelemetry | Logs + metrics required; request_id / correlation_id |
 | Run | Compose + multi-stage Dockerfile | Non-root runtime; no build tools in final image |
 | Tests | pytest + httpx ASGI (user-flow) | Mock only DB / externals |
-| Mutation | mutmut | Scoped to `app/prior_auth/services` (+ intake services) |
+| Mutation | mutmut | Scoped to `app/prior_auth/service.py` (+ intake services) |
 | CI | GitHub Actions | Build image **no push**; pytest; mutmut |
 
 ### Dockerfile shape (multi-stage)
@@ -411,7 +411,7 @@ jobs:
     steps: checkout → setup uv → uv sync (includes dev group) → alembic upgrade → pytest
   mutate:
     needs: test
-    steps: checkout → setup uv → uv sync → mutmut on app/prior_auth/services (documented threshold)
+    steps: checkout → setup uv → uv sync → mutmut on app/prior_auth/service.py (documented threshold)
   image:
     runs-on: ubuntu-latest
     steps: checkout → docker build -t prior-auth-api:ci .   # NO push, NO login
@@ -464,7 +464,7 @@ jobs:
 ### Task 3: Slice A — Submit + intake rejection + office read + audit
 
 **Files:**
-- Create: `app/prior_auth/services/submit.py`, `app/prior_auth/schemas.py`, `app/prior_auth/router.py`, `app/intake/` (models, service, router), `app/audit/service.py`, `app/shared/errors.py`
+- Create: `app/prior_auth/service.py`, `app/prior_auth/schemas.py`, `app/prior_auth/router.py`, `app/intake/` (models, service, router), `app/audit/service.py`, `app/shared/errors.py`
 - Test: `tests/test_submit.py`, `tests/test_intake_support.py`
 
 **Interfaces:**
@@ -483,7 +483,7 @@ jobs:
 ### Task 4: Slice B — Queue, claim, COI, decide, reassign
 
 **Files:**
-- Create: `app/prior_auth/services/{claim,decide,reassign}.py`; extend `app/prior_auth/router.py`
+- Extend: `app/prior_auth/service.py` (claim/decide/reassign); extend `app/prior_auth/router.py`
 - Test: `tests/test_claim_concurrency.py`, `tests/test_coi.py`, `tests/test_decide.py`, `tests/test_db_invariants.py`
 
 **Interfaces:**
@@ -523,7 +523,7 @@ jobs:
 - Modify: `README.md` — how to run, tokens, AI usage stub, decisions, CI notes, Postman import steps
 
 **Interfaces:**
-- Produces: CI green on pytest + docker build (no push) + mutmut scoped to `app/prior_auth/services`
+- Produces: CI green on pytest + docker build (no push) + mutmut scoped to `app/prior_auth/service.py`
 - Produces: demo script runnable after `docker compose up` + seed
 - Produces: `uv run python scripts/generate_postman_collection.py` → collection with all `/v1` routes, Bearer `{{token}}`, and env vars for seeded role tokens (`office_token`, `reviewer_token`, `member_token`, `admin_token`, `base_url`)
 
@@ -534,7 +534,7 @@ jobs:
 - Environment file carries seed JWTs from the same values documented in README/seed.
 - README: `uv run python scripts/generate_postman_collection.py` then Import → collection + environment in Postman.
 
-- [ ] **Step 1:** Wire CI jobs: test (Postgres service), mutate (`mutmut run` paths=`app/prior_auth/services`), image (`docker build` only).
+- [ ] **Step 1:** Wire CI jobs: test (Postgres service), mutate (`mutmut run` paths=`app/prior_auth/service.py`), image (`docker build` only).
 - [ ] **Step 2:** Run mutmut locally; kill survivors in prior_auth services until threshold met (document in README).
 - [ ] **Step 3:** Write `scripts/demo.sh` + README “Live walkthrough” section.
 - [ ] **Step 4:** Implement `scripts/generate_postman_collection.py`; run it; commit generated `postman/*.json`; document import in README. → verify: collection contains submit/claim/decide/me/support paths and env has four role tokens.
@@ -565,7 +565,7 @@ jobs:
    - **External calls** (outbound HTTP, email, third-party APIs, OTel exporter). MVP has almost no externals — mock those if introduced.
 4. **Exception — persistence truth:** claim race, DB CHECK (`decided ⇒ decided_by`), and audit-in-same-transaction proofs use a **real Postgres** fixture (Compose/Testcontainers). There the database is part of the system under test, not a mocked collaborator. Do not fake those with in-memory stubs.
 5. **Fixtures:** seed (or factory) master data + mint real JWTs for roles; assert status codes + JSON bodies (+ optional DB row checks only on persistence-truth tests).
-6. **mutmut** targets `app/prior_auth/services` (and intake services if non-trivial); survivors must not be fixable by “tests that only hit mocks of the service.”
+6. **mutmut** targets `app/prior_auth/service.py` (and intake services if non-trivial); survivors must not be fixable by “tests that only hit mocks of the service.”
 
 ### Anti-patterns (reject in review)
 
@@ -574,7 +574,7 @@ jobs:
 - Calling service functions as the primary proof that an endpoint works  
 - Broad `MagicMock` of the app or `dependency_overrides` that replace business services (overrides OK only to inject a fake DB session or fake external client)
 - Copy-pasted HTTP/setup in tests — use `tests/conftest.py` helpers or `@pytest.mark.parametrize`; add a helper on the second copy
-- Duplicated domain logic across services/routers — extract shared utils (e.g. `services/common.py`, `raise_validation`) when the pattern appears twice
+- Duplicated domain logic across services/routers — extract shared utils (e.g. `service.py`, `raise_validation`) when the pattern appears twice
 
 ### Commit / CI quality gates (locked)
 
@@ -620,7 +620,7 @@ Each case below is an **HTTP** scenario unless marked persistence-truth.
 | Risk | Mitigation |
 |------|------------|
 | Overbuilding wishlist | Cut until Task 7 spare time only; ponytail YAGNI |
-| mutmut noise / time | Scope to `app/prior_auth/services`; document threshold |
+| mutmut noise / time | Scope to `app/prior_auth/service.py`; document threshold |
 | OTel ceremony | Thin `telemetry.py`; console exporter default |
 | Status mush | Matrices first; DB CHECKs |
 | Audit bolted on late | `app/audit/service.py` (`write_audit`) in same transaction from Task 3 |

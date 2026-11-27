@@ -31,12 +31,7 @@ def _domain_messages(caplog) -> list[str]:
 
 def test_submit_claim_conflict_reassign_decide_logs(client: TestClient, caplog):
     # Pin domain loggers so a prior test's root WARNING (LOG_LEVEL) cannot hide INFO.
-    loggers = (
-        "app.prior_auth.services.submit",
-        "app.prior_auth.services.claim",
-        "app.prior_auth.services.decide",
-        "app.prior_auth.services.reassign",
-    )
+    loggers = ("app.prior_auth.service",)
     practice_id = str(client.seed["practice"].uuid)
     member_id = str(client.seed["member"].uuid)
     reviewer_id = str(client.seed["reviewer"].uuid)

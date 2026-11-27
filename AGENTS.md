@@ -68,7 +68,7 @@ Mirrored in `.agent/rules/coding-gates.mdc`.
 │   ├── shared/           # errors, deps
 │   ├── identity/         # users, JWT, RBAC
 │   ├── master_data/      # practices, members, coverage, COI
-│   ├── prior_auth/       # submit/claim/decide/reassign + routers
+│   ├── prior_auth/       # service + helpers + router
 │   ├── intake/           # IntakeRejection + support lookup
 │   ├── audit/            # AuditEvent + service + audit router
 │   └── outbox/           # decision notify (worker + MailDev)

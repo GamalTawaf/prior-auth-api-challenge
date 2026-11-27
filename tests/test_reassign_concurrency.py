@@ -6,7 +6,7 @@ from app.audit.models import AuditEvent
 from app.identity.models import User, UserRole
 from app.identity.schemas import UserContext
 from app.prior_auth.models import PriorAuthRequest, RequestStatus
-from app.prior_auth.services.reassign import reassign_request
+from app.prior_auth.service import reassign_request
 from sqlalchemy import select
 
 from tests.conftest import race_attempt, run_two_thread_race, seed_race_fixture

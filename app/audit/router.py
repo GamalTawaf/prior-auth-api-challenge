@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.audit.models import AuditEvent
 from app.audit.schemas import AuditEventOut
-from app.prior_auth.services.common import get_request
+from app.prior_auth.helpers import get_request
 from app.shared.deps import AdminOrAuditor, DbSession
 from app.shared.errors import OPENAPI_ERROR_RESPONSES
 
