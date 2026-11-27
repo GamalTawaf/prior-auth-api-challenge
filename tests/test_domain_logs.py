@@ -82,7 +82,26 @@ def test_submit_claim_conflict_reassign_decide_logs(client: TestClient, caplog):
             f"reviewer_id={reviewer_id} approved=1 denied=0"
         )
         assert decided_msg in _domain_messages(caplog)
+
+        # denied>0 so mutants of the denied sum / "denied" compare change the message
+        denied_data = submit_and_claim(client)
+        denied_outcomes = [
+            {
+                "procedure_id": denied_data["procedures"][0]["uuid"],
+                "decision": "denied",
+                "denial_reason": "not medically necessary",
+            }
+        ]
+        denied_resp = decide_as(client, denied_data["uuid"], denied_outcomes)
+        assert denied_resp.status_code == 200
+        denied_id = denied_data["uuid"]
+        denied_msg = (
+            f"prior auth decided request_id={denied_id} "
+            f"reviewer_id={reviewer_id} approved=0 denied=1"
+        )
+        assert denied_msg in _domain_messages(caplog)
         assert all("denial_reason" not in m for m in _domain_messages(caplog))
+        assert all("not medically necessary" not in m for m in _domain_messages(caplog))
 
 
 def test_intake_rejection_logs_without_payload(client: TestClient, caplog):
