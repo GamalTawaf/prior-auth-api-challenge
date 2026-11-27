@@ -9,7 +9,7 @@ Prior Authorization API take-home (Oxbridge Health). Durable Python + PostgreSQL
 ## Startup
 
 1. `pwd` → repo root; load skill `.agent/skills/session-start` when beginning a session
-2. Read this file, `CLAUDE.md`, and README Decisions (domain changes only)
+2. Read this file, `CLAUDE.md`, and `README_FULL.md` Decisions (domain changes only)
 3. `./init.sh` (repair baseline before any new work)
 4. `.agent/session-handoff.md` for current system snapshot
 5. Plans are historical: `docs/plans/2026-11-24-prior-auth-api.md`, `docs/plans/2026-11-25-wishlist-outbox-maildev.md` (**shipped**)
@@ -77,7 +77,8 @@ Mirrored in `.agent/rules/coding-gates.mdc`.
 | `.agent/feature_list.json` | Shipped feature inventory + evidence |
 | `.agent/progress.md` | Compact shipped log |
 | `.agent/session-handoff.md` | System snapshot + walkthrough |
-| `README.md` | How to run, Decisions, AI usage |
+| `README.md` | Quick start + Postman walkthrough |
+| `README_FULL.md` | Decisions, CI, AI usage, full how-to-run |
 | `./init.sh` / `./scripts/gates.sh` / `./scripts/demo.sh` | Verify + live demo |
 
 ## Verification
@@ -115,5 +116,5 @@ Exactly one label: `low` | `medium` | `high`. See `.agent/rules/pr-lanes.mdc`.
 ## Escalation
 
 - Architecture / compliance ambiguity → ask user
-- Unclear requirements → README Decisions / plans; then ask
+- Unclear requirements → `README_FULL.md` Decisions / plans; then ask
 - Repeated test failures → update progress, stop expanding scope

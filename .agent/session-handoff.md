@@ -22,14 +22,14 @@ Plans (historical): `docs/plans/2026-11-24-prior-auth-api.md`, `docs/plans/2026-
 
 ## Agent ops (keep short)
 
-- Prefer README Decisions + this handoff over re-reading full plans unless changing design.
+- Prefer `README_FULL.md` Decisions + this handoff over re-reading full plans unless changing design.
 - **Parallel work:** grit + `./scripts/grit_reindex.sh`; serialize Alembic. Skill: `.agent/skills/grit-parallel`.
 - Never commit to `main` — branch + PR. Skills: `.agent/skills/open-pr`, `.agent/skills/stacked-prs`.
 - Sync `origin/main` before starting work (rule: `.agent/rules/git-sync-before-work.mdc`).
 
 ## Walkthrough
 
-1. State machine + matrices in README Decisions
+1. State machine + matrices in `README_FULL.md` Decisions
 2. `docker compose up -d && uv run alembic upgrade head && uv run python scripts/seed.py`
 3. `./scripts/demo.sh` — fail→support→submit→idempotency replay→claim 409→workload→COI→decide→MailDev→auditor→member redaction
 4. OpenAPI: http://localhost:8000/docs · Grafana LGTM: http://localhost:3000
