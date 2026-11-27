@@ -218,7 +218,7 @@ Root holds only entrypoints and runtime project files. App code is split by **do
 │   │   └── router.py           # /v1/support/intake-rejections/{correlation_id}
 │   └── audit/                  # append-only trail
 │       ├── models.py           # AuditEvent
-│       ├── writer.py           # same-session writer
+│       ├── services.py         # same-session write_audit
 │       └── router.py           # GET …/audit (admin)
 ├── tests/                      # mirror domains: test_prior_auth_*, test_intake_*, …
 ├── scripts/
@@ -464,7 +464,7 @@ jobs:
 ### Task 3: Slice A — Submit + intake rejection + office read + audit
 
 **Files:**
-- Create: `app/prior_auth/services/submit.py`, `app/prior_auth/schemas.py`, `app/prior_auth/router.py`, `app/intake/` (models, services, router), `app/audit/writer.py`, `app/shared/errors.py`
+- Create: `app/prior_auth/services/submit.py`, `app/prior_auth/schemas.py`, `app/prior_auth/router.py`, `app/intake/` (models, services, router), `app/audit/services.py`, `app/shared/errors.py`
 - Test: `tests/test_submit.py`, `tests/test_intake_support.py`
 
 **Interfaces:**
@@ -558,7 +558,7 @@ jobs:
 
 **Shape:** Outside-in, same path a partner/office/reviewer uses.
 
-1. **Act via HTTP** — `httpx.ASGITransport` / FastAPI test client against the real app: real routes, middleware, JWT auth deps, Pydantic validation, services, audit writer, response schemas.
+1. **Act via HTTP** — `httpx.ASGITransport` / FastAPI test client against the real app: real routes, middleware, JWT auth deps, Pydantic validation, services, audit services, response schemas.
 2. **Do not mock** routers, services, domain rules, RBAC dependencies, serializers, OpenAPI, or “call the service directly and skip HTTP” for acceptance of business rules.
 3. **Allowed mocks only:**
    - **DB responses** at the persistence boundary (session/repository), when the test is proving API/service behavior without needing a live engine; **or**
@@ -623,7 +623,7 @@ Each case below is an **HTTP** scenario unless marked persistence-truth.
 | mutmut noise / time | Scope to `app/prior_auth/services`; document threshold |
 | OTel ceremony | Thin `telemetry.py`; console exporter default |
 | Status mush | Matrices first; DB CHECKs |
-| Audit bolted on late | `app/audit/writer.py` in same transaction from Task 3 |
+| Audit bolted on late | `app/audit/services.py` (`write_audit`) in same transaction from Task 3 |
 | AI mush / comment noise | Karpathy simplicity; names over comments; thin routers, fat domain services |
 | Package sprawl | Domain packages only; no `repos/` until duplication; no empty domains |
 
