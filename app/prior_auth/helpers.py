@@ -5,7 +5,7 @@ import uuid
 from sqlalchemy import ColumnElement, Select, select
 from sqlalchemy.orm import Session, raiseload, selectinload
 
-from app.audit.writer import write_audit
+from app.audit.service import write_audit
 from app.master_data.models import ReviewerMemberConflict
 from app.prior_auth.models import PriorAuthRequest
 from app.shared.errors import NotFoundError
@@ -90,7 +90,7 @@ def get_request_for_update(
     *,
     load_procedures: bool = False,
 ) -> PriorAuthRequest:
-    """Row-lock helper; lives in do_not_mutate common so `for_update=True` is not a mutant target."""
+    """Row-lock helper so call sites do not pass a mutable for_update=True kwarg."""
     return get_request(db, request_id, for_update=True, load_procedures=load_procedures)
 
 

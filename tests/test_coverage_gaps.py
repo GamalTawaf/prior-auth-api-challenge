@@ -19,8 +19,7 @@ from app.prior_auth.models import (
 )
 from app.prior_auth.schemas import DecideIn, ProcedureDecisionIn
 from app.prior_auth.serializers import to_member_out
-from app.prior_auth.services.claim import claim_request
-from app.prior_auth.services.decide import decide_request
+from app.prior_auth.service import claim_request, decide_request
 from app.shared.errors import ForbiddenError, NotFoundError, ValidationFailure
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session

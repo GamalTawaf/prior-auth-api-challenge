@@ -267,7 +267,7 @@ GitHub Actions — thin `.github/workflows/ci.yml` calls reusable workflows:
 1. **changes** — path filter (`code` vs meta-only)
 2. **lint** — ruff + call-style + FastAPI/OpenAPI compile
 3. **test** — Postgres 19 service, alembic, pytest with **100% coverage** gate
-4. **mutate** — mutmut on `app/prior_auth/services` (see threshold below)
+4. **mutate** — mutmut on `app/prior_auth/service.py` (see threshold below)
 5. **image** — `docker build` only (no registry login/push)
 
 Branch protection contexts are nested (`lint / lint`, …) because each job is a `workflow_call`.
@@ -276,7 +276,7 @@ Meta-only PRs (e.g. `.gitignore`, markdown, docs) still report those four checks
 
 ### Mutmut threshold
 
-Scoped via `setup.cfg`: `source_paths=app/`, `only_mutate=app/prior_auth/services/*`.
+Scoped via `setup.cfg`: `source_paths=app/`, `only_mutate=app/prior_auth/service.py`.
 
 **Do not run bare `uv run mutmut run`.** Use the wrapper — it prepares per-child DBs and sets the worker count:
 
@@ -360,6 +360,6 @@ Extras AI made cheap to keep (not required by the brief): agent harness under `.
 ## Design notes
 
 - Flat domain packages under `app/` (identity, master_data, prior_auth, intake, audit, outbox, shared)
-- Thin routers; rules in `prior_auth/services/*`
+- Thin routers; rules in each domain’s `service.py`
 - Role-specific response schemas (member strips note + denial reason)
 - OpenTelemetry in `telemetry.py` (console default; Compose sets `OTEL_EXPORTER_OTLP_ENDPOINT` → `grafana/otel-lgtm` for traces, metrics, and logs). Instruments FastAPI (HTTP spans + server metrics), SQLAlchemy (DB spans + connection metrics), logging, and manual `smtp.send` spans in the outbox mailer. API + `outbox-worker` both export. No Redis in this stack.

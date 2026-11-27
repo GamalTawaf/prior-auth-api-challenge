@@ -6,7 +6,7 @@ from app.identity.models import UserRole
 from app.identity.schemas import UserContext
 from app.prior_auth.models import RequestStatus
 from app.prior_auth.schemas import DecideIn, ProcedureDecisionIn
-from app.prior_auth.services.decide import decide_request
+from app.prior_auth.service import decide_request
 from fastapi.testclient import TestClient
 
 from tests.conftest import (

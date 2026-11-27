@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.identity.models import UserRole
 from app.identity.schemas import UserContext
 from app.prior_auth.models import PriorAuthRequest, RequestStatus
-from app.prior_auth.services.claim import claim_request
+from app.prior_auth.service import claim_request
 from fastapi.testclient import TestClient
 
 from tests.conftest import (
