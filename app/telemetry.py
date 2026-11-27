@@ -32,6 +32,46 @@ _intake_rejection_counter = None
 _providers_ready = False
 _sqlalchemy_instrumented = False
 
+# Uvicorn access/error default to propagate=False, so a root-only handler never
+# sees request lines. SQLAlchemy engine/pool propagate → root (PII filter applies).
+_OTLP_HANDLER_TARGETS = (
+    "",
+    "uvicorn",
+    "uvicorn.access",
+    "uvicorn.error",
+)
+_DB_LOG_TARGETS = (
+    "sqlalchemy.engine",
+    "sqlalchemy.pool",
+)
+
+
+def _resolve_log_level() -> int:
+    raw = os.getenv("LOG_LEVEL", "INFO").upper()
+    level = logging.getLevelName(raw)
+    if isinstance(level, int):
+        return level
+    return logging.INFO
+
+
+def attach_otlp_logging_handler(
+    logger_provider: LoggerProvider,
+    *,
+    level: int | None = None,
+) -> LoggingHandler:
+    """Install OTEL LoggingHandler on root + uvicorn; enable SQLA DB logs at level."""
+    log_level = _resolve_log_level() if level is None else level
+    handler = LoggingHandler(level=log_level, logger_provider=logger_provider)
+    for name in _OTLP_HANDLER_TARGETS:
+        logger = logging.getLogger(name)
+        already = any(isinstance(existing, LoggingHandler) for existing in logger.handlers)
+        if not already:
+            logger.addHandler(handler)
+        logger.setLevel(log_level)
+    for name in _DB_LOG_TARGETS:
+        logging.getLogger(name).setLevel(log_level)
+    return handler
+
 
 def configure_telemetry(*, fastapi_app: FastAPI | None = None) -> None:
     """Providers + SQLAlchemy (+ optional FastAPI). Safe to call from API or worker.
@@ -61,8 +101,9 @@ def configure_telemetry(*, fastapi_app: FastAPI | None = None) -> None:
             log_processor = BatchLogRecordProcessor(log_exporter)
             logger_provider.add_log_record_processor(log_processor)
             set_logger_provider(logger_provider)
-            otel_handler = LoggingHandler(level=logging.INFO, logger_provider=logger_provider)
-            logging.getLogger().addHandler(otel_handler)
+            # basicConfig (via LoggingInstrumentor) is a no-op once a handler exists;
+            # attach_otlp_logging_handler sets levels so INFO request/DB logs export.
+            attach_otlp_logging_handler(logger_provider)
         else:
             console_spans = ScrubbingSpanExporter(ConsoleSpanExporter())
             tracer_provider.add_span_processor(BatchSpanProcessor(console_spans))

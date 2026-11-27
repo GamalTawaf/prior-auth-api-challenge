@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -261,6 +262,13 @@ def test_telemetry_otlp_and_counters(monkeypatch):
     assert instrumented
     assert "engine" in instrumented[0]
     assert instrumented[0].get("skip_dep_check") is True
+    assert logging.getLogger().level <= logging.INFO
+    access = logging.getLogger("uvicorn.access")
+    assert access.level <= logging.INFO
+    from opentelemetry.sdk._logs import LoggingHandler
+
+    assert any(isinstance(h, LoggingHandler) for h in access.handlers)
+    assert logging.getLogger("sqlalchemy.engine").level <= logging.INFO
     tel.record_claim_conflict()
     tel.record_intake_rejection()
     tel._claim_conflict_counter = None
