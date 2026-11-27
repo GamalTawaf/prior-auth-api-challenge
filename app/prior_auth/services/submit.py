@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from datetime import timedelta
 
@@ -19,6 +20,7 @@ from app.shared.errors import FieldError, raise_field, raise_validation
 
 ICD10_RE = re.compile(r"^[A-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?$", re.IGNORECASE)
 CPT_RE = re.compile(r"^[A-Z0-9]{5}$", re.IGNORECASE)
+_log = logging.getLogger(__name__)
 
 
 def _commit_refresh(db: Session, request: PriorAuthRequest) -> PriorAuthRequest:
@@ -176,16 +178,28 @@ def submit_prior_auth(
         request.procedures.append(PriorAuthProcedure(code=code_norm, units=proc.units, sequence=i))
     db.add(request)
     db.flush()
+    request_id_str = str(request.uuid)
+    member_id_str = str(body.member_id)
+    procedure_codes = [p.code for p in request.procedures]
     write_audit(
         db,
         actor_user_id=ctx.user_id,
         action="submit",
         payload={
-            "request_id": str(request.uuid),
-            "member_id": str(body.member_id),
-            "procedure_codes": [p.code for p in request.procedures],
+            "request_id": request_id_str,
+            "member_id": member_id_str,
+            "procedure_codes": procedure_codes,
         },
         request_id=request.uuid,
+    )
+    practice_id_str = str(ctx.practice_id)
+    procedure_count = len(procedure_codes)
+    _log.info(
+        "prior auth submitted request_id=%s practice_id=%s member_id=%s procedures=%s",
+        request_id_str,
+        practice_id_str,
+        member_id_str,
+        procedure_count,
     )
     # Separate guards (not one `and` chain) so `and`→`or` cannot no-op on HTTP.
     # practice_id is already required at the top of this function.

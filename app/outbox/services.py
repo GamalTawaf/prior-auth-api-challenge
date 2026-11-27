@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,6 +12,8 @@ from app.master_data.models import Member, Practice
 from app.outbox.mailer import send_smtp
 from app.outbox.models import OutboxEvent, OutboxKind, OutboxStatus
 from app.prior_auth.models import PriorAuthProcedure, PriorAuthRequest
+
+_log = logging.getLogger(__name__)
 
 _DECISION_LABEL = {
     "approved": "Approved",
@@ -129,6 +133,8 @@ def process_batch(
         except Exception as exc:
             err = str(exc)
             mark_failed(db, event, err)
+            event_id = str(event.uuid)
+            _log.warning("outbox send failed event_id=%s error=%s", event_id, err)
         else:
             mark_sent(db, event)
     if events:
