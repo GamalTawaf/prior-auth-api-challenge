@@ -36,3 +36,10 @@ def test_attach_otlp_logging_handler_respects_level(monkeypatch):
     assert logging.getLogger().level == logging.WARNING
     assert logging.getLogger("uvicorn.access").level == logging.WARNING
     assert logging.getLogger("sqlalchemy.engine").level == logging.WARNING
+
+
+def test_resolve_log_level_falls_back_on_invalid(monkeypatch):
+    from app.telemetry import _resolve_log_level
+
+    monkeypatch.setenv("LOG_LEVEL", "NOT_A_LEVEL")
+    assert _resolve_log_level() == logging.INFO
