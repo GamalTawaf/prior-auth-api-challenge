@@ -11,7 +11,7 @@ description: >-
 
 1. `AGENTS.md` (status + working rules)
 2. `.agent/session-handoff.md` (system snapshot)
-3. README Decisions only if touching domain behavior
+3. `README_FULL.md` Decisions only if touching domain behavior
 4. Full `docs/plans/*` **only** when changing design or reopening shipped scope
 
 ## Git
