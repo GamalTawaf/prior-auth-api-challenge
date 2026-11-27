@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from app.outbox.services import process_batch
+from app.outbox.service import process_batch
 from app.outbox.worker import main, run_once
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -106,7 +106,7 @@ def test_submit_claim_conflict_reassign_decide_logs(client: TestClient, caplog):
 
 def test_intake_rejection_logs_without_payload(client: TestClient, caplog):
     practice_id = str(client.seed["practice"].uuid)
-    with caplog.at_level(logging.WARNING, logger="app.intake.services"):
+    with caplog.at_level(logging.WARNING, logger="app.intake.service"):
         bad = client.post(
             "/v1/prior-auths",
             headers=role_headers(client, "office"),
@@ -136,7 +136,7 @@ def test_outbox_worker_and_send_failure_logs(client: TestClient, db: Session, mo
     def boom(_to: str, _subject: str, _text: str) -> None:
         raise RuntimeError("smtp down")
 
-    with caplog.at_level(logging.WARNING, logger="app.outbox.services"):
+    with caplog.at_level(logging.WARNING, logger="app.outbox.service"):
         n = process_batch(db, send_fn=boom)
     assert n == 1
     fail_msgs = [

@@ -64,7 +64,7 @@ app/outbox/
   models.py          # OutboxEvent
   mailer.py          # send_smtp(to, subject, body) via settings
   worker.py          # poll loop (module main)
-  services.py        # enqueue_decision_notice, claim_batch, mark_sent/failed
+  service.py         # enqueue_decision_notice, claim_batch, mark_sent/failed
 app/workload/
   router.py          # GET /v1/reviewers/workload
   schemas.py

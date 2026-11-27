@@ -214,11 +214,11 @@ Root holds only entrypoints and runtime project files. App code is split by **do
 │   │   └── router.py           # /v1/prior-auths, /v1/review-queue, /v1/me/prior-auths
 │   ├── intake/                 # failed submissions (not in queue)
 │   │   ├── models.py           # IntakeRejection
-│   │   ├── services.py
+│   │   ├── service.py
 │   │   └── router.py           # /v1/support/intake-rejections/{correlation_id}
 │   └── audit/                  # append-only trail
 │       ├── models.py           # AuditEvent
-│       ├── services.py         # same-session write_audit
+│       ├── service.py          # same-session write_audit
 │       └── router.py           # GET …/audit (admin)
 ├── tests/                      # mirror domains: test_prior_auth_*, test_intake_*, …
 ├── scripts/
@@ -464,7 +464,7 @@ jobs:
 ### Task 3: Slice A — Submit + intake rejection + office read + audit
 
 **Files:**
-- Create: `app/prior_auth/services/submit.py`, `app/prior_auth/schemas.py`, `app/prior_auth/router.py`, `app/intake/` (models, services, router), `app/audit/services.py`, `app/shared/errors.py`
+- Create: `app/prior_auth/services/submit.py`, `app/prior_auth/schemas.py`, `app/prior_auth/router.py`, `app/intake/` (models, service, router), `app/audit/service.py`, `app/shared/errors.py`
 - Test: `tests/test_submit.py`, `tests/test_intake_support.py`
 
 **Interfaces:**
@@ -623,7 +623,7 @@ Each case below is an **HTTP** scenario unless marked persistence-truth.
 | mutmut noise / time | Scope to `app/prior_auth/services`; document threshold |
 | OTel ceremony | Thin `telemetry.py`; console exporter default |
 | Status mush | Matrices first; DB CHECKs |
-| Audit bolted on late | `app/audit/services.py` (`write_audit`) in same transaction from Task 3 |
+| Audit bolted on late | `app/audit/service.py` (`write_audit`) in same transaction from Task 3 |
 | AI mush / comment noise | Karpathy simplicity; names over comments; thin routers, fat domain services |
 | Package sprawl | Domain packages only; no `repos/` until duplication; no empty domains |
 

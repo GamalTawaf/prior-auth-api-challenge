@@ -198,7 +198,7 @@ def _office_context_from_request(request: Request, db):
 def _persist_submit_schema_rejection(
     request: Request, exc: RequestValidationError, errors: list[FieldError]
 ) -> str | None:
-    from app.intake.services import persist_intake_rejection
+    from app.intake.service import persist_intake_rejection
 
     db, gen = _db_from_request(request)
     try:

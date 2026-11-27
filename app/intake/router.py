@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.intake.schemas import IntakeRejectionOut
-from app.intake.services import get_intake_rejection
+from app.intake.service import get_intake_rejection
 from app.shared.deps import DbSession, OfficeOrAdmin
 from app.shared.errors import OPENAPI_ERROR_RESPONSES
 

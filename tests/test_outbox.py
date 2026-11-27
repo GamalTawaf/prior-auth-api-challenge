@@ -6,7 +6,7 @@ import pytest
 from app.config import settings
 from app.outbox.mailer import send_smtp
 from app.outbox.models import OutboxEvent, OutboxStatus
-from app.outbox.services import (
+from app.outbox.service import (
     process_batch,
     render_decision_notice_body,
     render_decision_notice_subject,

@@ -6,7 +6,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.audit.services import write_audit
+from app.audit.service import write_audit
 from app.identity.models import UserRole
 from app.identity.schemas import UserContext
 from app.intake.models import IntakeRejection

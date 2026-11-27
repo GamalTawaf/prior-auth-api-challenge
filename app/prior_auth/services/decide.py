@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.clock import utc_now
 from app.identity.schemas import UserContext
-from app.outbox.services import enqueue_decision_notice
+from app.outbox.service import enqueue_decision_notice
 from app.prior_auth.models import ProcedureDecision, RequestStatus
 from app.prior_auth.schemas import DecideIn
 from app.prior_auth.services.common import audit_commit_refresh, get_request_for_update, has_coi

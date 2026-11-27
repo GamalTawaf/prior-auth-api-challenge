@@ -5,7 +5,7 @@ import uuid
 from sqlalchemy import ColumnElement, Select, select
 from sqlalchemy.orm import Session, raiseload, selectinload
 
-from app.audit.services import write_audit
+from app.audit.service import write_audit
 from app.master_data.models import ReviewerMemberConflict
 from app.prior_auth.models import PriorAuthRequest
 from app.shared.errors import NotFoundError

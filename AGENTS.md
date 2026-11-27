@@ -32,10 +32,16 @@ Prior Authorization API take-home (Oxbridge Health). Durable Python + PostgreSQL
 
 Mirrored in `.agent/rules/coding-gates.mdc`.
 
+### Domain services (required)
+
+- One `service.py` per domain package (`users`, `audit`, `outbox`, …) for use-case / write helpers. Same shape across domains — do not invent domain-specific layouts.
+- Do **not** split use-cases into a `services/` package (`create.py`, `lifecycle.py`, `orgs.py`, …) or add `writer.py` / other one-off layers for thin writers.
+- Shared query/validation helpers may live in a sibling `helpers.py` (not a use-case split). Models stay Declarative (schema only). Routers/workers import from that domain’s `service.py`.
+
 ### No duplication
 
 - **Tests:** reuse `tests/conftest.py` helpers (`submit_ok`, `submit_and_claim`, `claim_as`, `decide_as`, `reassign_as`, `assert_has_error_code`, `role_headers`, race helpers, …). Parametrize same shapes. Add a helper when a sequence appears twice.
-- **App:** extract shared utils at 2+ call sites (`has_coi`, `get_request`, `audit_commit_refresh`; `raise_validation` / `raise_field`). No speculative layers for one site.
+- **App:** extract shared utils at 2+ call sites (domain `helpers.py`, or `raise_validation` / `raise_field`). No speculative layers for one site.
 
 ### Call style (`scripts/check_call_style.py`)
 
@@ -64,7 +70,7 @@ Mirrored in `.agent/rules/coding-gates.mdc`.
 │   ├── master_data/      # practices, members, coverage, COI
 │   ├── prior_auth/       # submit/claim/decide/reassign + routers
 │   ├── intake/           # IntakeRejection + support lookup
-│   ├── audit/            # AuditEvent + services + audit router
+│   ├── audit/            # AuditEvent + service + audit router
 │   └── outbox/           # decision notify (worker + MailDev)
 ├── tests/ / scripts/ / postman/
 ```
